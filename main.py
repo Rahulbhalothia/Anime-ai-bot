@@ -1,417 +1,11 @@
 # =========================================
-# 🌸 REI ULTRA PRO ANIME AI ASSISTANT
-# =========================================
-
-import asyncio
-asyncio.set_event_loop(asyncio.new_event_loop())
-
-import os
-import json
-import re
-import difflib
-import traceback
-import random
-
-from pyrogram import Client, filters
-from pyrogram.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton
-)
-
-# =========================================
-# CONFIG
-# =========================================
-
-API_ID = 34695568
-API_HASH = "fafa070d35e6738bd289023532bad03e"
-BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
-
-DB_FILE = "anime_db.json"
-USER_DB = "users.json"
-
-# =========================================
-# BOT
-# =========================================
-
-app = Client(
-    "Rei",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN
-)
-
-# =========================================
-# LOAD DATABASE
-# =========================================
-
-if os.path.exists(DB_FILE):
-
-    with open(DB_FILE, "r") as f:
-        anime_db = json.load(f)
-
-else:
-    anime_db = {}
-
-if os.path.exists(USER_DB):
-
-    with open(USER_DB, "r") as f:
-        users = json.load(f)
-
-else:
-    users = {}
-
-batch_mode = {}
-
-# =========================================
-# SAVE DATABASE
-# =========================================
-
-def save_db():
-
-    with open(DB_FILE, "w") as f:
-        json.dump(anime_db, f, indent=4)
-
-def save_users():
-
-    with open(USER_DB, "w") as f:
-        json.dump(users, f, indent=4)
-
-# =========================================
-# CREATE USER
-# =========================================
-
-def create_user(user_id):
-
-    user_id = str(user_id)
-
-    if user_id not in users:
-
-        users[user_id] = {
-            "favorites": [],
-            "history": []
-        }
-
-        save_users()
-
-# =========================================
-# CLEAN NAME
-# =========================================
-
-def clean_name(name):
-
-    name = str(name).lower()
-
-    remove_words = [
-        "1080p",
-        "720p",
-        "480p",
-        "360p",
-        "x264",
-        "aac",
-        "mkv",
-        "mp4",
-        "hindi",
-        "english",
-        "dual",
-        "audio",
-        "bluray",
-        "webrip",
-        "sub",
-        "dub",
-        "official",
-        "episode",
-        "ep",
-        "season"
-    ]
-
-    for word in remove_words:
-        name = name.replace(word, "")
-
-    name = re.sub(r"\d+", "", name)
-    name = re.sub(r"[^a-zA-Z ]", "", name)
-
-    return name.replace(" ", "").strip()
-
-# =========================================
-# QUOTES
-# =========================================
-
-quotes = [
-    "⚡ Wake up to reality.",
-    "🌸 Power comes from within.",
-    "🔥 Keep moving forward.",
-    "✨ Anime makes life better.",
-    "😎 Shadows are strongest."
-]
-
-# =========================================
-# START
-# =========================================
-
-@app.on_message(filters.command("start"))
-async def start(client, message):
-
-    try:
-
-        user_id = str(message.from_user.id)
-        create_user(user_id)
-
-        text = f"""
-🌸 Hey {message.from_user.first_name}~
-
-I'm Rei ✨
-Your Ultra Anime AI Assistant 😎
-
-🎬 Anime ka naam bhejo
-
-✨ Example:
-• Solo Leveling
-• Naruto
-• One Piece
-
-🔥 Features:
-• Smart Search
-• Fast Sending
-• Favorites
-• No Duplicate Episodes
-
-⚡ Batch Save:
-/batch sololeveling
-"""
-
-        buttons = InlineKeyboardMarkup([
-
-            [
-                InlineKeyboardButton(
-                    "🔥 Action",
-                    callback_data="action"
-                ),
-
-                InlineKeyboardButton(
-                    "💕 Romance",
-                    callback_data="romance"
-                )
-            ],
-
-            [
-                InlineKeyboardButton(
-                    "⚔ Isekai",
-                    callback_data="isekai"
-                ),
-
-                InlineKeyboardButton(
-                    "😂 Comedy",
-                    callback_data="comedy"
-                )
-            ]
-        ])
-
-        await message.reply_photo(
-            photo="welcome.png",
-            caption=text,
-            reply_markup=buttons
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# BUTTONS
-# =========================================
-
-@app.on_callback_query()
-async def buttons(client, callback):
-
-    try:
-
-        data = callback.data
-
-        anime_lists = {
-
-            "action": [
-                "Solo Leveling",
-                "Jujutsu Kaisen",
-                "Demon Slayer"
-            ],
-
-            "romance": [
-                "Horimiya",
-                "Toradora",
-                "Your Lie In April"
-            ],
-
-            "isekai": [
-                "Overlord",
-                "ReZero",
-                "Mushoku Tensei"
-            ],
-
-            "comedy": [
-                "Grand Blue",
-                "Gintama",
-                "Konosuba"
-            ]
-        }
-
-        if data in anime_lists:
-
-            text = "✨ Recommended Anime:\n\n"
-
-            for anime in anime_lists[data]:
-                text += f"• {anime}\n"
-
-            await callback.message.reply_text(text)
-
-        await callback.answer()
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# BATCH MODE
-# =========================================
-
-@app.on_message(filters.command("batch"))
-async def batch(client, message):
-
-    try:
-
-        args = message.text.split(maxsplit=1)
-
-        if len(args) < 2:
-
-            await message.reply_text(
-                "❌ Usage:\n/batch sololeveling"
-            )
-
-            return
-
-        anime_name = clean_name(args[1])
-
-        batch_mode[message.chat.id] = anime_name
-
-        if anime_name not in anime_db:
-            anime_db[anime_name] = []
-
-        save_db()
-
-        await message.reply_text(
-            f"🔥 Batch mode ON for {anime_name}"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# STOP BATCH
-# =========================================
-
-@app.on_message(filters.command("stopbatch"))
-async def stop_batch(client, message):
-
-    try:
-
-        if message.chat.id in batch_mode:
-            del batch_mode[message.chat.id]
-
-        await message.reply_text(
-            "🛑 Batch mode OFF"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# AUTO SAVE
-# =========================================
-
-@app.on_message(filters.video | filters.document)
-async def auto_save(client, message):
-
-    try:
-
-        if message.chat.id not in batch_mode:
-            return
-
-        anime_name = batch_mode[message.chat.id]
-
-        if anime_name not in anime_db:
-            anime_db[anime_name] = []
-
-        # REAL FILE ID
-        if message.video:
-            file_id = message.video.file_id
-            unique_id = message.video.file_unique_id
-
-        else:
-            file_id = message.document.file_id
-            unique_id = message.document.file_unique_id
-
-        # CHECK DUPLICATE
-        for item in anime_db[anime_name]:
-
-            if item["unique_id"] == unique_id:
-                return
-
-        # SAVE
-        anime_db[anime_name].append({
-
-            "file_id": file_id,
-            "unique_id": unique_id,
-            "message_id": message.id
-
-        })
-
-        save_db()
-
-        total = len(anime_db[anime_name])
-
-        await message.reply_text(
-            f"✅ Saved in {anime_name}\n📦 Total Episodes: {total}"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# FAVORITES
-# =========================================
-
-@app.on_message(filters.command("fav"))
-async def favorite(client, message):
-
-    try:
-
-        args = message.text.split(maxsplit=1)
-
-        if len(args) < 2:
-            return
-
-        anime = clean_name(args[1])
-
-        user_id = str(message.from_user.id)
-
-        create_user(user_id)
-
-        if anime not in users[user_id]["favorites"]:
-
-            users[user_id]["favorites"].append(anime)
-            save_users()
-
-        await message.reply_text(
-            f"💕 Added {anime} to favorites"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
 # SEARCH
 # =========================================
 
 @app.on_message(
     filters.text &
     ~filters.reply &
+    ~filters.forwarded &
     ~filters.command([
         "start",
         "batch",
@@ -423,9 +17,25 @@ async def search(client, message):
 
     try:
 
-        # IGNORE BOT MSG
+        # =========================================
+        # IGNORE BOT MESSAGES
+        # =========================================
+
         if message.from_user and message.from_user.is_bot:
             return
+
+        # =========================================
+        # STOP DOUBLE RESPONSE
+        # =========================================
+
+        if getattr(message, "_processed", False):
+            return
+
+        message._processed = True
+
+        # =========================================
+        # CLEAN QUERY
+        # =========================================
 
         query = clean_name(message.text)
 
@@ -434,20 +44,30 @@ async def search(client, message):
 
         found = None
 
+        # =========================================
         # EXACT MATCH
+        # =========================================
+
         if query in anime_db:
             found = query
 
+        # =========================================
         # PARTIAL MATCH
+        # =========================================
+
         if not found:
 
             for anime in anime_db:
 
                 if query in anime or anime in query:
+
                     found = anime
                     break
 
+        # =========================================
         # FUZZY MATCH
+        # =========================================
+
         if not found:
 
             matches = difflib.get_close_matches(
@@ -460,7 +80,10 @@ async def search(client, message):
             if matches:
                 found = matches[0]
 
+        # =========================================
         # NOT FOUND
+        # =========================================
+
         if not found:
 
             await message.reply_text(
@@ -469,20 +92,33 @@ async def search(client, message):
 
             return
 
+        # =========================================
+        # GET EPISODES
+        # =========================================
+
         ids = anime_db[found]
 
+        # =========================================
         # REMOVE DUPLICATES
+        # =========================================
+
         unique_items = []
         used = set()
 
         for item in ids:
 
-            if item["unique_id"] not in used:
+            unique_id = item.get("unique_id")
 
-                used.add(item["unique_id"])
+            if unique_id not in used:
+
+                used.add(unique_id)
                 unique_items.append(item)
 
         ids = unique_items
+
+        # =========================================
+        # SAVE HISTORY
+        # =========================================
 
         user_id = str(message.from_user.id)
 
@@ -491,6 +127,10 @@ async def search(client, message):
         users[user_id]["history"].append(found)
 
         save_users()
+
+        # =========================================
+        # SEND START MESSAGE
+        # =========================================
 
         quote = random.choice(quotes)
 
@@ -503,6 +143,10 @@ async def search(client, message):
 {quote}
 """
         )
+
+        # =========================================
+        # SEND EPISODES
+        # =========================================
 
         success = 0
         failed = 0
@@ -522,7 +166,12 @@ async def search(client, message):
                 await asyncio.sleep(0.5)
 
             except Exception:
+
                 failed += 1
+
+        # =========================================
+        # FINAL MESSAGE
+        # =========================================
 
         await message.reply_text(
             f"✅ Sent: {success}\n❌ Failed: {failed}"
@@ -530,11 +179,3 @@ async def search(client, message):
 
     except Exception:
         traceback.print_exc()
-
-# =========================================
-# RUN
-# =========================================
-
-print("🌸 Rei Ultra Anime AI Running...")
-
-app.run()
