@@ -1,6 +1,6 @@
 # =========================================
-# EXTRA FEATURES UPDATE FOR REI
-# ADD THIS BELOW SEARCH SYSTEM
+# 🌸 EXTRA FEATURES FOR REI
+# PASTE THIS ABOVE app.run()
 # =========================================
 
 # =========================================
@@ -56,6 +56,15 @@ sololeveling
 
 💕 Favorites:
 /fav sololeveling
+
+🕒 History:
+/history
+
+✨ Anime Quote:
+/quote
+
+▶ Continue Watching:
+/continue
 """
 
         await message.reply_text(text)
