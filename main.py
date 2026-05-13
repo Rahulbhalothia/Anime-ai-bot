@@ -59,37 +59,24 @@ def save_db():
 # SMART CLEAN NAME
 # =========================
 
+
 def clean_name(name):
 
-    name = str(name).lower()
+    name = name.lower()
 
     remove_words = [
         "1080p", "720p", "480p", "360p",
         "x264", "aac", "mkv", "mp4",
         "hindi", "english", "dual", "audio",
-        "bluray", "webrip", "sub", "dub",
-        "official"
+        "bluray", "webrip", "sub", "dub"
     ]
 
     for word in remove_words:
         name = name.replace(word, "")
 
-    # remove episode text
-    name = re.sub(r"episode\s*\d+", "", name)
-
-    # remove season text
-    name = re.sub(r"season\s*\d+", "", name)
-
-    # remove S01E01 style
-    name = re.sub(r"s\d+e\d+", "", name)
-
-    # remove brackets
-    name = re.sub(r"\[.*?\]", "", name)
-
-    # remove numbers
-    name = re.sub(r"\d+", "", name)
-
-    # remove symbols
+    name = re.sub(r"episode\\s*\\d+", "", name)
+    name = re.sub(r"s\\d+e\\d+", "", name)
+    name = re.sub(r"\\d+", "", name)
     name = re.sub(r"[^a-zA-Z ]", "", name)
 
     return name.replace(" ", "").strip()
@@ -97,6 +84,7 @@ def clean_name(name):
 # =========================
 # TRACE AI DETECTION
 # =========================
+
 
 def detect_anime(image_path):
 
@@ -106,8 +94,7 @@ def detect_anime(image_path):
 
             response = requests.post(
                 "https://api.trace.moe/search",
-                files={"image": img},
-                timeout=30
+                files={"image": img}
             )
 
         data = response.json()
@@ -126,7 +113,7 @@ def detect_anime(image_path):
         print(f"Detected: {anime_name}")
         print(f"Confidence: {confidence}")
 
-        if confidence < 0.70:
+        if confidence < 0.75:
             return None
 
         return anime_name
@@ -139,6 +126,7 @@ def detect_anime(image_path):
 # =========================
 # EXTRACT VIDEO FRAME
 # =========================
+
 
 def extract_frame(video_path, output="frame.jpg"):
 
@@ -164,6 +152,7 @@ def extract_frame(video_path, output="frame.jpg"):
 # SAVE ANIME
 # =========================
 
+
 @app.on_message(filters.video | filters.document)
 async def save_episode(client, message):
 
@@ -171,15 +160,12 @@ async def save_episode(client, message):
 
         await message.reply_text("🔍 Detecting anime...")
 
-        # DOWNLOAD VIDEO
         video_path = await message.download()
 
-        # EXTRACT FRAME
         frame = extract_frame(video_path)
 
         detected = None
 
-        # AI DETECTION
         if frame:
             detected = detect_anime(frame)
 
@@ -187,7 +173,6 @@ async def save_episode(client, message):
         if not detected:
 
             caption = message.caption or ""
-
             detected = caption
 
         if not detected:
@@ -200,8 +185,6 @@ async def save_episode(client, message):
 
         anime_name = clean_name(detected)
 
-        print("FINAL NAME:", anime_name)
-
         if len(anime_name) < 3:
 
             await message.reply_text(
@@ -210,13 +193,11 @@ async def save_episode(client, message):
 
             return
 
-        # CREATE ENTRY
         if anime_name not in anime_db:
             anime_db[anime_name] = []
 
         msg_id = message.id
 
-        # AVOID DUPLICATES
         if msg_id not in anime_db[anime_name]:
             anime_db[anime_name].append(msg_id)
 
@@ -228,12 +209,12 @@ async def save_episode(client, message):
 
     except Exception:
 
-        print("SAVE ERROR")
         traceback.print_exc()
 
 # =========================
-# START COMMAND
+# START
 # =========================
+
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
@@ -242,18 +223,15 @@ async def start(client, message):
 
         args = message.text.split()
 
-        # =========================
-        # WELCOME MESSAGE
-        # =========================
-
+        # WELCOME
         if len(args) < 2:
 
-            welcome_text = f"""
+            text = f"""
 ✨━━━━━━━━━━━━━━━━━━✨
 🎬 ANIME LISTING BOT 🎬
 ✨━━━━━━━━━━━━━━━━━━✨
 
-🔥 Welcome {message.from_user.first_name} !!
+🔥 Welcome {message.from_user.first_name}
 
 📥 Send:
 /start anime_name
@@ -261,47 +239,35 @@ async def start(client, message):
 ✅ Example:
 /start sololeveling
 
-🎞 Bot will send all saved episodes automatically.
-
-⚡ Powered By AI Anime System
+⚡ AI Powered Anime Search
 """
 
             await message.reply_photo(
-                photo="https://i.imgur.com/8Km9tLL.jpeg",
-                caption=welcome_text
+                photo="https://files.catbox.moe/7w1l6a.jpg",
+                caption=text
             )
 
             return
 
-        # =========================
-        # SEARCH ANIME
-        # =========================
-
         query = clean_name(args[1])
-
-        print("USER SEARCH:", query)
 
         found = None
 
-        # DIRECT SEARCH
+        # DIRECT MATCH
         for anime in anime_db:
 
-            cleaned_saved = clean_name(anime)
-
-            # both side match
-            if query in cleaned_saved or cleaned_saved in query:
-
+            if query in anime:
                 found = anime
                 break
 
-        # SIMILAR SEARCH
+        # AI SIMILAR MATCH
         if not found:
 
             matches = difflib.get_close_matches(
                 query,
                 anime_db.keys(),
                 n=1,
-                cutoff=0.4
+                cutoff=0.5
             )
 
             if matches:
@@ -321,7 +287,6 @@ async def start(client, message):
             f"🔥 Sending {len(ids)} episodes of {found}"
         )
 
-        # SEND EPISODES
         for msg_id in ids:
 
             try:
@@ -338,7 +303,6 @@ async def start(client, message):
 
     except Exception:
 
-        print("START ERROR")
         traceback.print_exc()
 
 # =========================
