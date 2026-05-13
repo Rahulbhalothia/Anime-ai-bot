@@ -30,7 +30,7 @@ BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
 STORAGE_CHANNEL = -1002224266205
 
-WELCOME_STICKER = None
+WELCOME_STICKER = "CAACAgUAAxkBAAIB4moEXLUQ-DfHEfGODJRBm0MzcK6oAAL3DQAC4jH5VwwnwHx0gIyYHgQ"
 
 DB_FILE = "anime_db.json"
 
@@ -46,27 +46,6 @@ app = Client(
     api_hash=API_HASH,
     bot_token=BOT_TOKEN
 )
-
-# =========================================
-# STICKER FILE ID GETTER
-# =========================================
-
-@app.on_message(filters.sticker)
-async def get_sticker_id(client, message):
-
-    try:
-
-        file_id = message.sticker.file_id
-
-        print(file_id)
-
-        await message.reply_text(
-            f"✨ Sticker File ID:\n\n{file_id}"
-        )
-
-    except Exception:
-
-        traceback.print_exc()
 
 # =========================================
 # DATABASE
@@ -178,11 +157,9 @@ async def start(client, message):
 
             save_users()
 
-        if WELCOME_STICKER:
-
-            await message.reply_sticker(
-                WELCOME_STICKER
-            )
+        await message.reply_sticker(
+            WELCOME_STICKER
+        )
 
         text = f"""
 🌸 Hey {message.from_user.first_name}~
@@ -292,6 +269,261 @@ async def buttons(client, callback):
                 text += f"• {anime}\n"
 
             await callback.message.reply_text(text)
+
+    except Exception:
+
+        traceback.print_exc()
+
+# =========================================
+# BATCH MODE
+# =========================================
+
+@app.on_message(filters.command("batch"))
+async def batch(client, message):
+
+    try:
+
+        args = message.text.split(maxsplit=1)
+
+        if len(args) < 2:
+
+            await message.reply_text(
+                "❌ Usage:\n/batch sololeveling"
+            )
+
+            return
+
+        anime_name = clean_name(args[1])
+
+        batch_mode[message.chat.id] = anime_name
+
+        await message.reply_text(
+            f"🔥 Batch mode ON for {anime_name}"
+        )
+
+    except Exception:
+
+        traceback.print_exc()
+
+@app.on_message(filters.command("stopbatch"))
+async def stop_batch(client, message):
+
+    try:
+
+        if message.chat.id in batch_mode:
+
+            del batch_mode[message.chat.id]
+
+        await message.reply_text(
+            "🛑 Batch mode OFF"
+        )
+
+    except Exception:
+
+        traceback.print_exc()
+
+# =========================================
+# AUTO SAVE
+# =========================================
+
+@app.on_message(filters.video | filters.document)
+async def auto_save(client, message):
+
+    try:
+
+        if message.chat.id not in batch_mode:
+            return
+
+        anime_name = batch_mode[message.chat.id]
+
+        if anime_name not in anime_db:
+
+            anime_db[anime_name] = []
+
+        msg_id = (
+
+            message.forward_from_message_id
+
+            if message.forward_from_message_id
+
+            else message.id
+        )
+
+        if msg_id not in anime_db[anime_name]:
+
+            anime_db[anime_name].append(msg_id)
+
+            save_db()
+
+        await message.reply_text(
+            f"✅ Saved in {anime_name}"
+        )
+
+    except Exception:
+
+        traceback.print_exc()
+
+# =========================================
+# MANUAL SAVE
+# =========================================
+
+@app.on_message(filters.reply & filters.text)
+async def manual_save(client, message):
+
+    try:
+
+        replied = message.reply_to_message
+
+        if not replied:
+            return
+
+        if not (replied.video or replied.document):
+            return
+
+        anime_name = clean_name(message.text)
+
+        if anime_name not in anime_db:
+
+            anime_db[anime_name] = []
+
+        msg_id = (
+
+            replied.forward_from_message_id
+
+            if replied.forward_from_message_id
+
+            else replied.id
+        )
+
+        if msg_id not in anime_db[anime_name]:
+
+            anime_db[anime_name].append(msg_id)
+
+            save_db()
+
+        await message.reply_text(
+            f"✨ Saved in {anime_name}"
+        )
+
+    except Exception:
+
+        traceback.print_exc()
+
+# =========================================
+# FAVORITES
+# =========================================
+
+@app.on_message(filters.command("fav"))
+async def favorite(client, message):
+
+    try:
+
+        args = message.text.split(maxsplit=1)
+
+        if len(args) < 2:
+            return
+
+        anime = clean_name(args[1])
+
+        user_id = str(message.from_user.id)
+
+        if anime not in users[user_id]["favorites"]:
+
+            users[user_id]["favorites"].append(anime)
+
+            save_users()
+
+        await message.reply_text(
+            f"💕 Added {anime} to favorites"
+        )
+
+    except Exception:
+
+        traceback.print_exc()
+
+# =========================================
+# SEARCH
+# =========================================
+
+@app.on_message(filters.text & ~filters.command([
+    "start",
+    "batch",
+    "stopbatch",
+    "fav"
+]))
+async def search(client, message):
+
+    try:
+
+        query = clean_name(message.text)
+
+        if len(query) < 2:
+            return
+
+        found = None
+
+        for anime in anime_db:
+
+            if query in anime or anime in query:
+
+                found = anime
+                break
+
+        if not found:
+
+            matches = difflib.get_close_matches(
+                query,
+                anime_db.keys(),
+                n=1,
+                cutoff=0.5
+            )
+
+            if matches:
+
+                found = matches[0]
+
+        if not found:
+
+            await message.reply_text(
+                "😭 Mujhe ye anime nahi mila..."
+            )
+
+            return
+
+        ids = anime_db[found]
+
+        user_id = str(message.from_user.id)
+
+        users[user_id]["history"].append(found)
+
+        save_users()
+
+        quote = random.choice(quotes)
+
+        await message.reply_text(
+            f"""
+✨ {found.title()} mil gaya!
+
+🔥 Sending {len(ids)} episodes...
+
+{quote}
+"""
+        )
+
+        tasks = []
+
+        for msg_id in ids:
+
+            tasks.append(
+
+                client.copy_message(
+                    chat_id=message.chat.id,
+                    from_chat_id=STORAGE_CHANNEL,
+                    message_id=msg_id
+                )
+            )
+
+        await asyncio.gather(*tasks)
 
     except Exception:
 
