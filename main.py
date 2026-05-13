@@ -355,14 +355,8 @@ async def auto_save(client, message):
 
             anime_db[anime_name] = []
 
-        msg_id = (
-
-            message.forward_from_message_id
-
-            if message.forward_from_message_id
-
-            else message.id
-        )
+        # REAL MESSAGE ID
+        msg_id = message.id
 
         if msg_id not in anime_db[anime_name]:
 
@@ -370,8 +364,10 @@ async def auto_save(client, message):
 
             save_db()
 
+        total = len(anime_db[anime_name])
+
         await message.reply_text(
-            f"✅ Saved in {anime_name}"
+            f"✅ Saved in {anime_name}\n📦 Total Episodes: {total}"
         )
 
     except Exception:
@@ -397,18 +393,15 @@ async def manual_save(client, message):
 
         anime_name = clean_name(message.text)
 
+        if len(anime_name) < 2:
+            return
+
         if anime_name not in anime_db:
 
             anime_db[anime_name] = []
 
-        msg_id = (
-
-            replied.forward_from_message_id
-
-            if replied.forward_from_message_id
-
-            else replied.id
-        )
+        # REAL MESSAGE ID
+        msg_id = replied.id
 
         if msg_id not in anime_db[anime_name]:
 
@@ -416,8 +409,10 @@ async def manual_save(client, message):
 
             save_db()
 
+        total = len(anime_db[anime_name])
+
         await message.reply_text(
-            f"✨ Saved in {anime_name}"
+            f"✨ Saved in {anime_name}\n📦 Total Episodes: {total}"
         )
 
     except Exception:
@@ -529,24 +524,32 @@ async def search(client, message):
 """
         )
 
-        tasks = []
+        success = 0
+        failed = 0
 
         for msg_id in ids:
 
-            tasks.append(
+            try:
 
-                client.copy_message(
+                await client.copy_message(
                     chat_id=message.chat.id,
                     from_chat_id=STORAGE_CHANNEL,
                     message_id=msg_id
                 )
-            )
 
-        for task in tasks:
+                success += 1
 
-            await task
+                await asyncio.sleep(0.2)
 
-            await asyncio.sleep(0.3)
+            except Exception:
+
+                failed += 1
+
+                traceback.print_exc()
+
+        await message.reply_text(
+            f"✅ Sent: {success}\n❌ Failed: {failed}"
+        )
 
     except Exception:
 
