@@ -46,7 +46,10 @@ app = Client(
     api_hash=API_HASH,
     bot_token=BOT_TOKEN
 )
+@app.on_message(filters.channel)
+async def check_channel(client, message):
 
+    print(message.chat.id)
 # =========================================
 # DATABASE
 # =========================================
