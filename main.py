@@ -8,6 +8,7 @@ import re
 import cv2
 import requests
 import traceback
+import difflib
 
 from pyrogram import Client, filters
 
@@ -21,7 +22,6 @@ API_HASH = "fafa070d35e6738bd289023532bad03e"
 
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
-# YOUR STORAGE CHANNEL ID
 STORAGE_CHANNEL = -1002224266205
 
 DB_FILE = "anime_db.json"
@@ -49,44 +49,53 @@ if os.path.exists(DB_FILE):
 else:
     anime_db = {}
 
+
 def save_db():
 
     with open(DB_FILE, "w") as f:
         json.dump(anime_db, f, indent=4)
 
 # =========================
-# CLEAN NAME
+# SMART CLEAN NAME
 # =========================
 
 def clean_name(name):
 
-    name = name.lower()
+    name = str(name).lower()
 
-    # remove brackets
-    name = re.sub(r"\[.*?\]", "", name)
+    remove_words = [
+        "1080p", "720p", "480p", "360p",
+        "x264", "aac", "mkv", "mp4",
+        "hindi", "english", "dual", "audio",
+        "bluray", "webrip", "sub", "dub",
+        "official"
+    ]
 
-    # remove quality tags
-    name = re.sub(r"1080p|720p|480p|360p", "", name)
-
-    # remove extensions
-    name = re.sub(r"mkv|mp4|x264|aac", "", name)
+    for word in remove_words:
+        name = name.replace(word, "")
 
     # remove episode text
     name = re.sub(r"episode\s*\d+", "", name)
 
-    # remove random numbers
+    # remove season text
+    name = re.sub(r"season\s*\d+", "", name)
+
+    # remove S01E01 style
+    name = re.sub(r"s\d+e\d+", "", name)
+
+    # remove brackets
+    name = re.sub(r"\[.*?\]", "", name)
+
+    # remove numbers
     name = re.sub(r"\d+", "", name)
 
     # remove symbols
     name = re.sub(r"[^a-zA-Z ]", "", name)
 
-    return (
-        name.replace(" ", "")
-        .strip()
-    )
+    return name.replace(" ", "").strip()
 
 # =========================
-# TRACE.MOE AI DETECTION
+# TRACE AI DETECTION
 # =========================
 
 def detect_anime(image_path):
@@ -97,7 +106,8 @@ def detect_anime(image_path):
 
             response = requests.post(
                 "https://api.trace.moe/search",
-                files={"image": img}
+                files={"image": img},
+                timeout=30
             )
 
         data = response.json()
@@ -116,7 +126,7 @@ def detect_anime(image_path):
         print(f"Detected: {anime_name}")
         print(f"Confidence: {confidence}")
 
-        if confidence < 0.80:
+        if confidence < 0.70:
             return None
 
         return anime_name
@@ -151,7 +161,7 @@ def extract_frame(video_path, output="frame.jpg"):
         return None
 
 # =========================
-# SAVE FORWARDED ANIME
+# SAVE ANIME
 # =========================
 
 @app.on_message(filters.video | filters.document)
@@ -159,28 +169,26 @@ async def save_episode(client, message):
 
     try:
 
-        print("Downloading video...")
+        await message.reply_text("🔍 Detecting anime...")
 
         # DOWNLOAD VIDEO
         video_path = await message.download()
 
-        print("Extracting frame...")
-
         # EXTRACT FRAME
         frame = extract_frame(video_path)
 
-        if not frame:
-
-            await message.reply_text(
-                "❌ Frame extraction failed"
-            )
-
-            return
-
-        print("Detecting anime...")
+        detected = None
 
         # AI DETECTION
-        detected = detect_anime(frame)
+        if frame:
+            detected = detect_anime(frame)
+
+        # FALLBACK TO CAPTION
+        if not detected:
+
+            caption = message.caption or ""
+
+            detected = caption
 
         if not detected:
 
@@ -192,20 +200,23 @@ async def save_episode(client, message):
 
         anime_name = clean_name(detected)
 
-        print(f"Clean Name: {anime_name}")
+        print("FINAL NAME:", anime_name)
+
+        if len(anime_name) < 3:
+
+            await message.reply_text(
+                "❌ Anime name too short"
+            )
+
+            return
 
         # CREATE ENTRY
         if anime_name not in anime_db:
             anime_db[anime_name] = []
 
-        # SAVE ORIGINAL MESSAGE ID
-        msg_id = (
-            message.forward_from_message_id
-            if message.forward_from_message_id
-            else message.id
-        )
+        msg_id = message.id
 
-        # AVOID DUPLICATE
+        # AVOID DUPLICATES
         if msg_id not in anime_db[anime_name]:
             anime_db[anime_name].append(msg_id)
 
@@ -215,11 +226,9 @@ async def save_episode(client, message):
             f"✅ Saved: {anime_name}"
         )
 
-        print(f"Saved {anime_name}")
-
     except Exception:
 
-        print("SAVE ERROR:")
+        print("SAVE ERROR")
         traceback.print_exc()
 
 # =========================
@@ -241,7 +250,7 @@ async def start(client, message):
 
             welcome_text = f"""
 ✨━━━━━━━━━━━━━━━━━━✨
-🎬  ANIME LISTING BOT  🎬
+🎬 ANIME LISTING BOT 🎬
 ✨━━━━━━━━━━━━━━━━━━✨
 
 🔥 Welcome {message.from_user.first_name} !!
@@ -258,7 +267,7 @@ async def start(client, message):
 """
 
             await message.reply_photo(
-                photo="https://files.catbox.moe/7w1l6a.jpg",
+                photo="https://i.imgur.com/8Km9tLL.jpeg",
                 caption=welcome_text
             )
 
@@ -268,19 +277,37 @@ async def start(client, message):
         # SEARCH ANIME
         # =========================
 
-        anime = clean_name(args[1])
+        query = clean_name(args[1])
 
-        found_anime = None
+        print("USER SEARCH:", query)
 
-        # PARTIAL SEARCH
-        for saved_name in anime_db:
+        found = None
 
-            if anime in saved_name:
+        # DIRECT SEARCH
+        for anime in anime_db:
 
-                found_anime = saved_name
+            cleaned_saved = clean_name(anime)
+
+            # both side match
+            if query in cleaned_saved or cleaned_saved in query:
+
+                found = anime
                 break
 
-        if not found_anime:
+        # SIMILAR SEARCH
+        if not found:
+
+            matches = difflib.get_close_matches(
+                query,
+                anime_db.keys(),
+                n=1,
+                cutoff=0.4
+            )
+
+            if matches:
+                found = matches[0]
+
+        if not found:
 
             await message.reply_text(
                 "❌ Anime not found"
@@ -288,10 +315,10 @@ async def start(client, message):
 
             return
 
-        ids = anime_db[found_anime]
+        ids = anime_db[found]
 
         await message.reply_text(
-            f"🔥 Found {len(ids)} episodes of {anime}"
+            f"🔥 Sending {len(ids)} episodes of {found}"
         )
 
         # SEND EPISODES
@@ -311,20 +338,13 @@ async def start(client, message):
 
     except Exception:
 
-        print("START ERROR:")
+        print("START ERROR")
         traceback.print_exc()
 
 # =========================
 # RUN
 # =========================
 
-try:
+print("🔥 AI Anime Bot Running")
 
-    print("🔥 AI Anime Bot Running")
-
-    app.run()
-
-except Exception:
-
-    print("BOT ERROR:")
-    traceback.print_exc()
+app.run()
