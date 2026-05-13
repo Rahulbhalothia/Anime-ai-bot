@@ -1,7 +1,51 @@
 # =========================================
-# 🌸 EXTRA FEATURES FOR REI
-# PASTE THIS ABOVE app.run()
+# 🌸 REI ULTRA PRO ANIME AI ASSISTANT
 # =========================================
+
+import asyncio
+asyncio.set_event_loop(asyncio.new_event_loop())
+
+import os
+import json
+import re
+import difflib
+import traceback
+import random
+
+from pyrogram import Client, filters
+from pyrogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
+
+# =========================================
+# CONFIG
+# =========================================
+
+API_ID = 34695568
+
+API_HASH = "fafa070d35e6738bd289023532bad03e"
+
+BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
+
+STORAGE_CHANNEL = -1002224266205
+
+WELCOME_STICKER = None
+
+DB_FILE = "anime_db.json"
+
+USER_DB = "users.json"
+
+# =========================================
+# BOT
+# =========================================
+
+app = Client(
+    "Rei",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 
 # =========================================
 # STICKER FILE ID GETTER
@@ -25,139 +69,176 @@ async def get_sticker_id(client, message):
         traceback.print_exc()
 
 # =========================================
-# HELP COMMAND
+# DATABASE
 # =========================================
 
-@app.on_message(filters.command("help"))
-async def help_command(client, message):
+if os.path.exists(DB_FILE):
+
+    with open(DB_FILE, "r") as f:
+        anime_db = json.load(f)
+
+else:
+    anime_db = {}
+
+if os.path.exists(USER_DB):
+
+    with open(USER_DB, "r") as f:
+        users = json.load(f)
+
+else:
+    users = {}
+
+batch_mode = {}
+
+# =========================================
+# SAVE DB
+# =========================================
+
+def save_db():
+
+    with open(DB_FILE, "w") as f:
+        json.dump(anime_db, f, indent=4)
+
+def save_users():
+
+    with open(USER_DB, "w") as f:
+        json.dump(users, f, indent=4)
+
+# =========================================
+# CLEAN NAME
+# =========================================
+
+def clean_name(name):
+
+    name = str(name).lower()
+
+    remove_words = [
+        "1080p",
+        "720p",
+        "480p",
+        "360p",
+        "x264",
+        "aac",
+        "mkv",
+        "mp4",
+        "hindi",
+        "english",
+        "dual",
+        "audio",
+        "bluray",
+        "webrip",
+        "sub",
+        "dub",
+        "official",
+        "episode",
+        "ep",
+        "season"
+    ]
+
+    for word in remove_words:
+
+        name = name.replace(word, "")
+
+    name = re.sub(r"\d+", "", name)
+
+    name = re.sub(r"[^a-zA-Z ]", "", name)
+
+    return name.replace(" ", "").strip()
+
+# =========================================
+# QUOTES
+# =========================================
+
+quotes = [
+
+    "⚡ Wake up to reality.",
+    "🌸 Power comes from within.",
+    "🔥 Keep moving forward.",
+    "✨ Anime makes life better.",
+    "😎 Shadows are strongest."
+]
+
+# =========================================
+# START
+# =========================================
+
+@app.on_message(filters.command("start"))
+async def start(client, message):
 
     try:
 
-        text = """
-🌸 Rei Help Menu
+        user_id = str(message.from_user.id)
 
-🎬 Anime Search:
-Just send anime name
+        if user_id not in users:
 
-Example:
-Solo Leveling
+            users[user_id] = {
+                "favorites": [],
+                "history": []
+            }
 
-📥 Save Anime:
-Reply anime name on forwarded anime
+            save_users()
 
-Example:
-sololeveling
+        if WELCOME_STICKER:
+
+            await message.reply_sticker(
+                WELCOME_STICKER
+            )
+
+        text = f"""
+🌸 Hey {message.from_user.first_name}~
+
+I'm Rei ✨
+Your Ultra Anime AI Assistant 😎
+
+🎬 Anime ka naam bhejo.
+
+✨ Example:
+• Solo Leveling
+• Naruto
+• One Piece
+
+🔥 Features:
+• Smart Search
+• Fast Sending
+• Favorites
+• Continue Watching
+• Anime Recommendations
 
 ⚡ Batch Save:
 /batch sololeveling
-
-🛑 Stop Batch:
-/stopbatch
-
-💕 Favorites:
-/fav sololeveling
-
-🕒 History:
-/history
-
-✨ Anime Quote:
-/quote
-
-▶ Continue Watching:
-/continue
 """
 
-        await message.reply_text(text)
+        buttons = InlineKeyboardMarkup([
 
-    except Exception:
+            [
+                InlineKeyboardButton(
+                    "🔥 Action",
+                    callback_data="action"
+                ),
 
-        traceback.print_exc()
+                InlineKeyboardButton(
+                    "💕 Romance",
+                    callback_data="romance"
+                )
+            ],
 
-# =========================================
-# HISTORY COMMAND
-# =========================================
+            [
+                InlineKeyboardButton(
+                    "⚔ Isekai",
+                    callback_data="isekai"
+                ),
 
-@app.on_message(filters.command("history"))
-async def history(client, message):
+                InlineKeyboardButton(
+                    "😂 Comedy",
+                    callback_data="comedy"
+                )
+            ]
+        ])
 
-    try:
-
-        user_id = str(message.from_user.id)
-
-        if user_id not in users:
-            return
-
-        history_list = users[user_id]["history"]
-
-        if len(history_list) == 0:
-
-            await message.reply_text(
-                "😭 No watch history found"
-            )
-
-            return
-
-        text = "🕒 Recent Watched Anime:\n\n"
-
-        for anime in history_list[-10:]:
-
-            text += f"• {anime.title()}\n"
-
-        await message.reply_text(text)
-
-    except Exception:
-
-        traceback.print_exc()
-
-# =========================================
-# FAVORITES LIST
-# =========================================
-
-@app.on_message(filters.command("favorites"))
-async def favorites(client, message):
-
-    try:
-
-        user_id = str(message.from_user.id)
-
-        if user_id not in users:
-            return
-
-        favs = users[user_id]["favorites"]
-
-        if len(favs) == 0:
-
-            await message.reply_text(
-                "😭 No favorites added"
-            )
-
-            return
-
-        text = "💕 Your Favorite Anime:\n\n"
-
-        for anime in favs:
-
-            text += f"• {anime.title()}\n"
-
-        await message.reply_text(text)
-
-    except Exception:
-
-        traceback.print_exc()
-
-# =========================================
-# RANDOM ANIME QUOTE
-# =========================================
-
-@app.on_message(filters.command("quote"))
-async def anime_quote(client, message):
-
-    try:
-
-        quote = random.choice(quotes)
-
-        await message.reply_text(
-            f"🌸 Anime Quote:\n\n{quote}"
+        await message.reply_photo(
+            photo="welcome.png",
+            caption=text,
+            reply_markup=buttons
         )
 
     except Exception:
@@ -165,35 +246,61 @@ async def anime_quote(client, message):
         traceback.print_exc()
 
 # =========================================
-# CONTINUE WATCHING
+# BUTTONS
 # =========================================
 
-@app.on_message(filters.command("continue"))
-async def continue_watch(client, message):
+@app.on_callback_query()
+async def buttons(client, callback):
 
     try:
 
-        user_id = str(message.from_user.id)
+        data = callback.data
 
-        if user_id not in users:
-            return
+        anime_lists = {
 
-        history_list = users[user_id]["history"]
+            "action": [
+                "Solo Leveling",
+                "Jujutsu Kaisen",
+                "Demon Slayer"
+            ],
 
-        if len(history_list) == 0:
+            "romance": [
+                "Horimiya",
+                "Toradora",
+                "Your Lie In April"
+            ],
 
-            await message.reply_text(
-                "😭 No recent anime found"
-            )
+            "isekai": [
+                "Overlord",
+                "ReZero",
+                "Mushoku Tensei"
+            ],
 
-            return
+            "comedy": [
+                "Grand Blue",
+                "Gintama",
+                "Konosuba"
+            ]
+        }
 
-        anime = history_list[-1]
+        if data in anime_lists:
 
-        await message.reply_text(
-            f"▶ Continue Watching:\n\n{anime.title()}"
-        )
+            text = "✨ Recommended Anime:\n\n"
+
+            for anime in anime_lists[data]:
+
+                text += f"• {anime}\n"
+
+            await callback.message.reply_text(text)
 
     except Exception:
 
         traceback.print_exc()
+
+# =========================================
+# RUN
+# =========================================
+
+print("🌸 Rei Ultra Anime AI Running...")
+
+app.run()
