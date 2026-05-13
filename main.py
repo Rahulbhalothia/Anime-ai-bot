@@ -49,7 +49,6 @@ if os.path.exists(DB_FILE):
 else:
     anime_db = {}
 
-
 def save_db():
 
     with open(DB_FILE, "w") as f:
@@ -59,16 +58,16 @@ def save_db():
 # SMART CLEAN NAME
 # =========================
 
-
 def clean_name(name):
 
-    name = name.lower()
+    name = str(name).lower()
 
     remove_words = [
         "1080p", "720p", "480p", "360p",
         "x264", "aac", "mkv", "mp4",
         "hindi", "english", "dual", "audio",
-        "bluray", "webrip", "sub", "dub"
+        "bluray", "webrip", "sub", "dub",
+        "official"
     ]
 
     for word in remove_words:
@@ -84,7 +83,6 @@ def clean_name(name):
 # =========================
 # TRACE AI DETECTION
 # =========================
-
 
 def detect_anime(image_path):
 
@@ -127,7 +125,6 @@ def detect_anime(image_path):
 # EXTRACT VIDEO FRAME
 # =========================
 
-
 def extract_frame(video_path, output="frame.jpg"):
 
     try:
@@ -149,46 +146,30 @@ def extract_frame(video_path, output="frame.jpg"):
         return None
 
 # =========================
-# SAVE ANIME
+# FAST SAVE SYSTEM
 # =========================
 
-
-@app.on_message(filters.video | filters.document)
-async def save_episode(client, message):
+@app.on_message(filters.reply & filters.text)
+async def manual_save(client, message):
 
     try:
 
-        await message.reply_text("🔍 Detecting anime...")
+        # REPLIED MESSAGE
+        replied = message.reply_to_message
 
-        video_path = await message.download()
-
-        frame = extract_frame(video_path)
-
-        detected = None
-
-        if frame:
-            detected = detect_anime(frame)
-
-        # FALLBACK TO CAPTION
-        if not detected:
-
-            caption = message.caption or ""
-            detected = caption
-
-        if not detected:
-
-            await message.reply_text(
-                "❌ Anime not detected"
-            )
-
+        if not replied:
             return
 
-        anime_name = clean_name(detected)
+        # ONLY VIDEO/DOCUMENT
+        if not (replied.video or replied.document):
+            return
 
-        if len(anime_name) < 3:
+        anime_name = clean_name(message.text)
+
+        if len(anime_name) < 2:
 
             await message.reply_text(
-                "❌ Anime name too short"
+                "❌ Invalid anime name"
             )
 
             return
@@ -196,16 +177,39 @@ async def save_episode(client, message):
         if anime_name not in anime_db:
             anime_db[anime_name] = []
 
-        msg_id = message.id
+        # SAVE ORIGINAL MESSAGE ID
+        msg_id = (
+            replied.forward_from_message_id
+            if replied.forward_from_message_id
+            else replied.id
+        )
 
+        # DUPLICATE PROTECTION
         if msg_id not in anime_db[anime_name]:
+
             anime_db[anime_name].append(msg_id)
 
-        save_db()
+            save_db()
 
         await message.reply_text(
-            f"✅ Saved: {anime_name}"
+            f"✅ Saved in {anime_name}"
         )
+
+    except Exception:
+
+        print("SAVE ERROR")
+        traceback.print_exc()
+
+# =========================
+# SAVE ANIME (OLD AI SYSTEM)
+# =========================
+
+@app.on_message(filters.video | filters.document)
+async def save_episode(client, message):
+
+    try:
+
+        print("⚡ Fast system active")
 
     except Exception:
 
@@ -215,7 +219,6 @@ async def save_episode(client, message):
 # START
 # =========================
 
-
 @app.on_message(filters.command("start"))
 async def start(client, message):
 
@@ -223,7 +226,10 @@ async def start(client, message):
 
         args = message.text.split()
 
+        # =========================
         # WELCOME
+        # =========================
+
         if len(args) < 2:
 
             text = f"""
@@ -233,17 +239,27 @@ async def start(client, message):
 
 🔥 Welcome {message.from_user.first_name}
 
-📥 Send:
+📥 HOW TO SAVE:
+
+➤ Forward anime episode
+➤ Reply anime name
+
+Example:
+sololeveling
+
+📥 HOW TO SEARCH:
+
 /start anime_name
 
 ✅ Example:
 /start sololeveling
 
-⚡ AI Powered Anime Search
+⚡ Ultra Fast Anime System
+🤖 Smart Anime Search
 """
 
             await message.reply_photo(
-                photo="https://files.catbox.moe/7w1l6a.jpg",
+                photo="welcome.jpg",
                 caption=text
             )
 
@@ -256,11 +272,12 @@ async def start(client, message):
         # DIRECT MATCH
         for anime in anime_db:
 
-            if query in anime:
+            if query in anime or anime in query:
+
                 found = anime
                 break
 
-        # AI SIMILAR MATCH
+        # SIMILAR MATCH
         if not found:
 
             matches = difflib.get_close_matches(
@@ -287,28 +304,30 @@ async def start(client, message):
             f"🔥 Sending {len(ids)} episodes of {found}"
         )
 
+        # FAST SEND
+        tasks = []
+
         for msg_id in ids:
 
-            try:
-
-                await client.copy_message(
+            tasks.append(
+                client.copy_message(
                     chat_id=message.chat.id,
                     from_chat_id=STORAGE_CHANNEL,
                     message_id=msg_id
                 )
+            )
 
-            except Exception:
-
-                traceback.print_exc()
+        await asyncio.gather(*tasks)
 
     except Exception:
 
+        print("START ERROR")
         traceback.print_exc()
 
 # =========================
 # RUN
 # =========================
 
-print("🔥 AI Anime Bot Running")
+print("🔥 Ultra Fast Anime Bot Running")
 
 app.run()
