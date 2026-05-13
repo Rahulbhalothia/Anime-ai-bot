@@ -4,9 +4,16 @@
 
 app = Client(
     "Rei",
-    api_id=34695568,
-    api_hash=fafa070d35e6738bd289023532bad03e,
-    bot_token=8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY
+    API_ID = 34695568
+API_HASH = "fafa070d35e6738bd289023532bad03e"
+BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
+
+app = Client(
+    "Rei",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 )
 
 # =========================================
