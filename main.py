@@ -368,10 +368,6 @@ async def auto_save(client, message):
 
         if already_saved:
 
-            await message.reply_text(
-                "⚠ Already Saved"
-            )
-
             return
 
         # SAVE
@@ -437,10 +433,6 @@ async def manual_save(client, message):
                 break
 
         if already_saved:
-
-            await message.reply_text(
-                "⚠ Already Saved"
-            )
 
             return
 
@@ -549,6 +541,19 @@ async def search(client, message):
 
         ids = anime_db[found]
 
+        # REMOVE DUPLICATES
+        unique_items = []
+        used_ids = set()
+
+        for item in ids:
+
+            if item["file_id"] not in used_ids:
+
+                used_ids.add(item["file_id"])
+                unique_items.append(item)
+
+        ids = unique_items
+
         user_id = str(message.from_user.id)
 
         create_user(user_id)
@@ -586,13 +591,11 @@ async def search(client, message):
 
                 success += 1
 
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5)
 
             except Exception:
 
                 failed += 1
-
-                traceback.print_exc()
 
         await message.reply_text(
             f"✅ Sent: {success}\n❌ Failed: {failed}"
