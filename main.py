@@ -536,7 +536,7 @@ async def search(client, message):
 
                 await client.copy_message(
                     chat_id=message.chat.id,
-                    from_chat_id=STORAGE_CHANNEL,
+                    from_chat_id=message.chat.id,
                     message_id=msg_id
                 )
 
