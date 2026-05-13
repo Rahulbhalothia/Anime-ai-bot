@@ -209,13 +209,40 @@ async def start(client, message):
 
         args = message.text.split()
 
+        # =========================
+        # NORMAL START
+        # =========================
+
         if len(args) < 2:
 
-            await message.reply_text(
-                "Usage:\n/start sololeveling"
+            welcome_text = f"""
+✨━━━━━━━━━━━━━━━━━━✨
+      🎬 ANIME LISTING BOT 🎬
+✨━━━━━━━━━━━━━━━━━━✨
+
+🔥 Welcome {message.from_user.first_name}
+
+📥 Send:
+/start anime_name
+
+✅ Example:
+/start sololeveling
+
+🎞 Bot will send all saved episodes automatically.
+
+⚡ Powered By AI Anime System
+"""
+
+            await message.reply_photo(
+                photo="https://i.imgur.com/8Km9tLL.jpeg",
+                caption=welcome_text
             )
 
             return
+
+        # =========================
+        # SEARCH ANIME
+        # =========================
 
         anime = clean_name(args[1])
 
