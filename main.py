@@ -28,10 +28,6 @@ API_HASH = "fafa070d35e6738bd289023532bad03e"
 
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
-STORAGE_CHANNEL = -1002224266205
-
-WELCOME_STICKER = "CAACAgUAAxkBAAIB4moEXLUQ-DfHEfGODJRBm0MzcK6oAAL3DQAC4jH5VwwnwHx0gIyYHgQ"
-
 DB_FILE = "anime_db.json"
 
 USER_DB = "users.json"
@@ -46,12 +42,9 @@ app = Client(
     api_hash=API_HASH,
     bot_token=BOT_TOKEN
 )
-@app.on_message(filters.channel)
-async def check_channel(client, message):
 
-    print(message.chat.id)
 # =========================================
-# DATABASE
+# LOAD DATABASE
 # =========================================
 
 if os.path.exists(DB_FILE):
@@ -73,7 +66,7 @@ else:
 batch_mode = {}
 
 # =========================================
-# SAVE DB
+# SAVE DATABASE
 # =========================================
 
 def save_db():
@@ -175,17 +168,13 @@ async def start(client, message):
 
         create_user(user_id)
 
-        await message.reply_sticker(
-            WELCOME_STICKER
-        )
-
         text = f"""
 🌸 Hey {message.from_user.first_name}~
 
 I'm Rei ✨
 Your Ultra Anime AI Assistant 😎
 
-🎬 Anime ka naam bhejo.
+🎬 Anime ka naam bhejo
 
 ✨ Example:
 • Solo Leveling
@@ -196,8 +185,7 @@ Your Ultra Anime AI Assistant 😎
 • Smart Search
 • Fast Sending
 • Favorites
-• Continue Watching
-• Anime Recommendations
+• No Duplicate Episodes
 
 ⚡ Batch Save:
 /batch sololeveling
@@ -323,6 +311,10 @@ async def batch(client, message):
 
         traceback.print_exc()
 
+# =========================================
+# STOP BATCH
+# =========================================
+
 @app.on_message(filters.command("stopbatch"))
 async def stop_batch(client, message):
 
@@ -358,14 +350,39 @@ async def auto_save(client, message):
 
             anime_db[anime_name] = []
 
-        # REAL MESSAGE ID
-        msg_id = message.id
+        # UNIQUE FILE ID
+        if message.video:
+            unique_id = message.video.file_unique_id
+        else:
+            unique_id = message.document.file_unique_id
 
-        if msg_id not in anime_db[anime_name]:
+        # CHECK DUPLICATE
+        already_saved = False
 
-            anime_db[anime_name].append(msg_id)
+        for item in anime_db[anime_name]:
 
-            save_db()
+            if item["file_id"] == unique_id:
+
+                already_saved = True
+                break
+
+        if already_saved:
+
+            await message.reply_text(
+                "⚠ Already Saved"
+            )
+
+            return
+
+        # SAVE
+        anime_db[anime_name].append({
+
+            "file_id": unique_id,
+            "message_id": message.id
+
+        })
+
+        save_db()
 
         total = len(anime_db[anime_name])
 
@@ -403,14 +420,39 @@ async def manual_save(client, message):
 
             anime_db[anime_name] = []
 
-        # REAL MESSAGE ID
-        msg_id = replied.id
+        # UNIQUE FILE ID
+        if replied.video:
+            unique_id = replied.video.file_unique_id
+        else:
+            unique_id = replied.document.file_unique_id
 
-        if msg_id not in anime_db[anime_name]:
+        # CHECK DUPLICATE
+        already_saved = False
 
-            anime_db[anime_name].append(msg_id)
+        for item in anime_db[anime_name]:
 
-            save_db()
+            if item["file_id"] == unique_id:
+
+                already_saved = True
+                break
+
+        if already_saved:
+
+            await message.reply_text(
+                "⚠ Already Saved"
+            )
+
+            return
+
+        # SAVE
+        anime_db[anime_name].append({
+
+            "file_id": unique_id,
+            "message_id": replied.id
+
+        })
+
+        save_db()
 
         total = len(anime_db[anime_name])
 
@@ -500,7 +542,7 @@ async def search(client, message):
         if not found:
 
             await message.reply_text(
-                "😭 Mujhe ye anime nahi mila..."
+                "😭 Anime not found"
             )
 
             return
@@ -530,9 +572,11 @@ async def search(client, message):
         success = 0
         failed = 0
 
-        for msg_id in ids:
+        for item in ids:
 
             try:
+
+                msg_id = item["message_id"]
 
                 await client.copy_message(
                     chat_id=message.chat.id,
@@ -542,7 +586,7 @@ async def search(client, message):
 
                 success += 1
 
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.3)
 
             except Exception:
 
@@ -563,4 +607,5 @@ async def search(client, message):
 # =========================================
 
 print("🌸 Rei Ultra Anime AI Running...")
+
 app.run()
