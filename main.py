@@ -259,7 +259,7 @@ sololeveling
 """
 
             await message.reply_photo(
-                photo="welcome.jpg",
+                photo="welcome.png",
                 caption=text
             )
 
