@@ -21,6 +21,9 @@ API_HASH = "fafa070d35e6738bd289023532bad03e"
 
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
+# YOUR STORAGE CHANNEL ID
+STORAGE_CHANNEL = -1002224266205
+
 DB_FILE = "anime_db.json"
 
 # =========================
@@ -195,10 +198,16 @@ async def save_episode(client, message):
         if anime_name not in anime_db:
             anime_db[anime_name] = []
 
-        # SAVE MESSAGE ID
-        msg_id = message.id
+        # SAVE ORIGINAL MESSAGE ID
+        msg_id = (
+            message.forward_from_message_id
+            if message.forward_from_message_id
+            else message.id
+        )
 
-        anime_db[anime_name].append(msg_id)
+        # AVOID DUPLICATE
+        if msg_id not in anime_db[anime_name]:
+            anime_db[anime_name].append(msg_id)
 
         save_db()
 
@@ -292,7 +301,7 @@ async def start(client, message):
 
                 await client.copy_message(
                     chat_id=message.chat.id,
-                    from_chat_id=message.chat.id,
+                    from_chat_id=STORAGE_CHANNEL,
                     message_id=msg_id
                 )
 
