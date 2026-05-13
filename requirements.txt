@@ -1,6 +1,6 @@
 pyrogram
 tgcrypto
-python-dotenv
-Pillow
+requests
 opencv-python-headless
 numpy
+pillow
