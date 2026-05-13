@@ -401,11 +401,11 @@ async def auto_save(client, message):
 )
 async def manual_save(client, message):
 
-
+         try:
 
         if not message.reply_to_message:
             return
-            try:
+            
         replied = message.reply_to_message
 
         if not (replied.video or replied.document):
