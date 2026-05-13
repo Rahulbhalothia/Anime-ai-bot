@@ -563,5 +563,7 @@ async def search(client, message):
 # =========================================
 
 print("🌸 Rei Ultra Anime AI Running...")
-
+app.start()
+app.get_chat(STORAGE_CHANNEL)
+app.stop()
 app.run()
