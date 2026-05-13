@@ -1,8 +1,13 @@
+import asyncio
+
+asyncio.set_event_loop(asyncio.new_event_loop())
+
 import os
 import json
 import re
 import cv2
 import requests
+import traceback
 
 from pyrogram import Client, filters
 
@@ -16,7 +21,7 @@ API_HASH = "fafa070d35e6738bd289023532bad03e"
 
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
-# YOUR STORAGE CHANNEL ID
+# STORAGE CHANNEL ID
 STORAGE_CHANNEL = -1002224266205
 
 DB_FILE = "anime_db.json"
@@ -65,58 +70,72 @@ def clean_name(name):
     )
 
 # =========================
-# AI DETECTION
+# TRACE.MOE AI DETECTION
 # =========================
 
 def detect_anime(image_path):
 
-    with open(image_path, "rb") as img:
+    try:
 
-        response = requests.post(
-            "https://api.trace.moe/search",
-            files={"image": img}
-        )
+        with open(image_path, "rb") as img:
 
-    data = response.json()
+            response = requests.post(
+                "https://api.trace.moe/search",
+                files={"image": img}
+            )
 
-    if "result" not in data:
+        data = response.json()
+
+        if "result" not in data:
+            return None
+
+        if len(data["result"]) == 0:
+            return None
+
+        best = data["result"][0]
+
+        anime_name = best.get("filename", "")
+        confidence = best.get("similarity", 0)
+
+        print(f"Detected: {anime_name}")
+        print(f"Confidence: {confidence}")
+
+        if confidence < 0.80:
+            return None
+
+        return anime_name
+
+    except Exception:
+
+        traceback.print_exc()
         return None
-
-    if len(data["result"]) == 0:
-        return None
-
-    best = data["result"][0]
-
-    anime_name = best.get("filename", "")
-    confidence = best.get("similarity", 0)
-
-    print(f"Detected: {anime_name}")
-    print(f"Confidence: {confidence}")
-
-    if confidence < 0.80:
-        return None
-
-    return anime_name
 
 # =========================
-# EXTRACT FRAME
+# EXTRACT VIDEO FRAME
 # =========================
 
 def extract_frame(video_path, output="frame.jpg"):
 
-    cap = cv2.VideoCapture(video_path)
+    try:
 
-    success, frame = cap.read()
+        cap = cv2.VideoCapture(video_path)
 
-    if success:
-        cv2.imwrite(output, frame)
+        success, frame = cap.read()
 
-    cap.release()
+        if success:
+            cv2.imwrite(output, frame)
 
-    return output
+        cap.release()
+
+        return output
+
+    except Exception:
+
+        traceback.print_exc()
+        return None
 
 # =========================
-# SAVE EPISODES
+# SAVE FORWARDED ANIME
 # =========================
 
 @app.on_message(filters.video | filters.document)
@@ -133,6 +152,14 @@ async def save_episode(client, message):
 
         # EXTRACT FRAME
         frame = extract_frame(video_path)
+
+        if not frame:
+
+            await message.reply_text(
+                "❌ Frame extraction failed"
+            )
+
+            return
 
         print("Detecting anime...")
 
@@ -153,12 +180,8 @@ async def save_episode(client, message):
         if anime_name not in anime_db:
             anime_db[anime_name] = []
 
-        # SAVE ORIGINAL MESSAGE ID
-        msg_id = (
-            message.forward_from_message_id
-            if message.forward_from_message_id
-            else message.id
-        )
+        # SAVE MESSAGE ID
+        msg_id = message.id
 
         anime_db[anime_name].append(msg_id)
 
@@ -170,9 +193,10 @@ async def save_episode(client, message):
 
         print(f"Saved {anime_name}")
 
-    except Exception as e:
+    except Exception:
 
-        print(e)
+        print("SAVE ERROR:")
+        traceback.print_exc()
 
 # =========================
 # START COMMAND
@@ -181,50 +205,64 @@ async def save_episode(client, message):
 @app.on_message(filters.command("start"))
 async def start(client, message):
 
-    args = message.text.split()
+    try:
 
-    if len(args) < 2:
+        args = message.text.split()
 
-        await message.reply_text(
-            "Usage:\n/start sololeveling"
-        )
+        if len(args) < 2:
 
-        return
-
-    anime = clean_name(args[1])
-
-    if anime not in anime_db:
-
-        await message.reply_text(
-            "❌ Anime not found"
-        )
-
-        return
-
-    ids = anime_db[anime]
-
-    await message.reply_text(
-        f"🔥 Found {len(ids)} episodes"
-    )
-
-    for msg_id in ids:
-
-        try:
-
-            await client.copy_message(
-                chat_id=message.chat.id,
-                from_chat_id=STORAGE_CHANNEL,
-                message_id=msg_id
+            await message.reply_text(
+                "Usage:\n/start sololeveling"
             )
 
-        except Exception as e:
+            return
 
-            print(e)
+        anime = clean_name(args[1])
+
+        if anime not in anime_db:
+
+            await message.reply_text(
+                "❌ Anime not found"
+            )
+
+            return
+
+        ids = anime_db[anime]
+
+        await message.reply_text(
+            f"🔥 Found {len(ids)} episodes"
+        )
+
+        for msg_id in ids:
+
+            try:
+
+                await client.copy_message(
+                    chat_id=message.chat.id,
+                    from_chat_id=message.chat.id,
+                    message_id=msg_id
+                )
+
+            except Exception:
+
+                traceback.print_exc()
+
+    except Exception:
+
+        print("START ERROR:")
+        traceback.print_exc()
 
 # =========================
 # RUN
 # =========================
 
-print("🔥 AI Anime Bot Running")
+try:
 
-app.run()
+    print("🔥 AI Anime Bot Running")
+
+    app.run()
+
+except Exception:
+
+    print("BOT ERROR:")
+    traceback.print_exc()
