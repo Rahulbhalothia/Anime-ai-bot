@@ -1,0 +1,6 @@
+pyrogram
+tgcrypto
+python-dotenv
+Pillow
+opencv-python-headless
+numpy
