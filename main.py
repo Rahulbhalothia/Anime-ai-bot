@@ -23,13 +23,10 @@ from pyrogram.types import (
 # =========================================
 
 API_ID = 34695568
-
 API_HASH = "fafa070d35e6738bd289023532bad03e"
-
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
 DB_FILE = "anime_db.json"
-
 USER_DB = "users.json"
 
 # =========================================
@@ -90,10 +87,8 @@ def create_user(user_id):
     if user_id not in users:
 
         users[user_id] = {
-
             "favorites": [],
             "history": []
-
         }
 
         save_users()
@@ -107,7 +102,6 @@ def clean_name(name):
     name = str(name).lower()
 
     remove_words = [
-
         "1080p",
         "720p",
         "480p",
@@ -128,15 +122,12 @@ def clean_name(name):
         "episode",
         "ep",
         "season"
-
     ]
 
     for word in remove_words:
-
         name = name.replace(word, "")
 
     name = re.sub(r"\d+", "", name)
-
     name = re.sub(r"[^a-zA-Z ]", "", name)
 
     return name.replace(" ", "").strip()
@@ -146,13 +137,11 @@ def clean_name(name):
 # =========================================
 
 quotes = [
-
     "⚡ Wake up to reality.",
     "🌸 Power comes from within.",
     "🔥 Keep moving forward.",
     "✨ Anime makes life better.",
     "😎 Shadows are strongest."
-
 ]
 
 # =========================================
@@ -165,7 +154,6 @@ async def start(client, message):
     try:
 
         user_id = str(message.from_user.id)
-
         create_user(user_id)
 
         text = f"""
@@ -225,7 +213,6 @@ Your Ultra Anime AI Assistant 😎
         )
 
     except Exception:
-
         traceback.print_exc()
 
 # =========================================
@@ -271,13 +258,13 @@ async def buttons(client, callback):
             text = "✨ Recommended Anime:\n\n"
 
             for anime in anime_lists[data]:
-
                 text += f"• {anime}\n"
 
             await callback.message.reply_text(text)
 
-    except Exception:
+        await callback.answer()
 
+    except Exception:
         traceback.print_exc()
 
 # =========================================
@@ -303,12 +290,16 @@ async def batch(client, message):
 
         batch_mode[message.chat.id] = anime_name
 
+        if anime_name not in anime_db:
+            anime_db[anime_name] = []
+
+        save_db()
+
         await message.reply_text(
             f"🔥 Batch mode ON for {anime_name}"
         )
 
     except Exception:
-
         traceback.print_exc()
 
 # =========================================
@@ -321,7 +312,6 @@ async def stop_batch(client, message):
     try:
 
         if message.chat.id in batch_mode:
-
             del batch_mode[message.chat.id]
 
         await message.reply_text(
@@ -329,7 +319,6 @@ async def stop_batch(client, message):
         )
 
     except Exception:
-
         traceback.print_exc()
 
 # =========================================
@@ -347,26 +336,28 @@ async def auto_save(client, message):
         anime_name = batch_mode[message.chat.id]
 
         if anime_name not in anime_db:
-
             anime_db[anime_name] = []
 
-        # UNIQUE FILE ID
+        # REAL FILE ID
         if message.video:
+            file_id = message.video.file_id
             unique_id = message.video.file_unique_id
+
         else:
+            file_id = message.document.file_id
             unique_id = message.document.file_unique_id
 
         # CHECK DUPLICATE
         for item in anime_db[anime_name]:
 
-            if item["file_id"] == unique_id:
-
+            if item["unique_id"] == unique_id:
                 return
 
         # SAVE
         anime_db[anime_name].append({
 
-            "file_id": unique_id,
+            "file_id": file_id,
+            "unique_id": unique_id,
             "message_id": message.id
 
         })
@@ -380,75 +371,6 @@ async def auto_save(client, message):
         )
 
     except Exception:
-
-        traceback.print_exc()
-
-# =========================================
-# MANUAL SAVE
-# =========================================
-
-@app.on_message(
-    filters.reply &
-    filters.text &
-    ~filters.command([
-        "start",
-        "batch",
-        "stopbatch",
-        "fav"
-    ])
-)
-async def manual_save(client, message):
-
-    try:
-
-        if not message.reply_to_message:
-            return
-
-        replied = message.reply_to_message
-
-        if not (replied.video or replied.document):
-            return
-
-        anime_name = clean_name(message.text)
-
-        if len(anime_name) < 2:
-            return
-
-        if anime_name not in anime_db:
-
-            anime_db[anime_name] = []
-
-        # UNIQUE FILE ID
-        if replied.video:
-            unique_id = replied.video.file_unique_id
-        else:
-            unique_id = replied.document.file_unique_id
-
-        # CHECK DUPLICATE
-        for item in anime_db[anime_name]:
-
-            if item["file_id"] == unique_id:
-
-                return
-
-        # SAVE
-        anime_db[anime_name].append({
-
-            "file_id": unique_id,
-            "message_id": replied.id
-
-        })
-
-        save_db()
-
-        total = len(anime_db[anime_name])
-
-        await message.reply_text(
-            f"✨ Saved in {anime_name}\n📦 Total Episodes: {total}"
-        )
-
-    except Exception:
-
         traceback.print_exc()
 
 # =========================================
@@ -474,7 +396,6 @@ async def favorite(client, message):
         if anime not in users[user_id]["favorites"]:
 
             users[user_id]["favorites"].append(anime)
-
             save_users()
 
         await message.reply_text(
@@ -482,7 +403,6 @@ async def favorite(client, message):
         )
 
     except Exception:
-
         traceback.print_exc()
 
 # =========================================
@@ -503,6 +423,10 @@ async def search(client, message):
 
     try:
 
+        # IGNORE BOT MSG
+        if message.from_user and message.from_user.is_bot:
+            return
+
         query = clean_name(message.text)
 
         if len(query) < 2:
@@ -510,26 +434,33 @@ async def search(client, message):
 
         found = None
 
-        for anime in anime_db:
+        # EXACT MATCH
+        if query in anime_db:
+            found = query
 
-            if query in anime or anime in query:
+        # PARTIAL MATCH
+        if not found:
 
-                found = anime
-                break
+            for anime in anime_db:
 
+                if query in anime or anime in query:
+                    found = anime
+                    break
+
+        # FUZZY MATCH
         if not found:
 
             matches = difflib.get_close_matches(
                 query,
                 anime_db.keys(),
                 n=1,
-                cutoff=0.5
+                cutoff=0.4
             )
 
             if matches:
-
                 found = matches[0]
 
+        # NOT FOUND
         if not found:
 
             await message.reply_text(
@@ -546,9 +477,9 @@ async def search(client, message):
 
         for item in ids:
 
-            if item["file_id"] not in used:
+            if item["unique_id"] not in used:
 
-                used.add(item["file_id"])
+                used.add(item["unique_id"])
                 unique_items.append(item)
 
         ids = unique_items
@@ -580,12 +511,10 @@ async def search(client, message):
 
             try:
 
-                msg_id = item["message_id"]
-
                 await client.copy_message(
                     chat_id=message.chat.id,
                     from_chat_id=message.chat.id,
-                    message_id=msg_id
+                    message_id=item["message_id"]
                 )
 
                 success += 1
@@ -593,7 +522,6 @@ async def search(client, message):
                 await asyncio.sleep(0.5)
 
             except Exception:
-
                 failed += 1
 
         await message.reply_text(
@@ -601,7 +529,6 @@ async def search(client, message):
         )
 
     except Exception:
-
         traceback.print_exc()
 
 # =========================================
