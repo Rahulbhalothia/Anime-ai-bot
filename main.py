@@ -21,9 +21,6 @@ API_HASH = "fafa070d35e6738bd289023532bad03e"
 
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
 
-# STORAGE CHANNEL ID
-STORAGE_CHANNEL = -1002224266205
-
 DB_FILE = "anime_db.json"
 
 # =========================
@@ -60,12 +57,28 @@ def save_db():
 
 def clean_name(name):
 
+    name = name.lower()
+
+    # remove brackets
     name = re.sub(r"\[.*?\]", "", name)
-    name = re.sub(r"[^a-zA-Z0-9 ]", "", name)
+
+    # remove quality tags
+    name = re.sub(r"1080p|720p|480p|360p", "", name)
+
+    # remove extensions
+    name = re.sub(r"mkv|mp4|x264|aac", "", name)
+
+    # remove episode text
+    name = re.sub(r"episode\s*\d+", "", name)
+
+    # remove random numbers
+    name = re.sub(r"\d+", "", name)
+
+    # remove symbols
+    name = re.sub(r"[^a-zA-Z ]", "", name)
 
     return (
-        name.lower()
-        .replace(" ", "")
+        name.replace(" ", "")
         .strip()
     )
 
@@ -176,6 +189,8 @@ async def save_episode(client, message):
 
         anime_name = clean_name(detected)
 
+        print(f"Clean Name: {anime_name}")
+
         # CREATE ENTRY
         if anime_name not in anime_db:
             anime_db[anime_name] = []
@@ -210,17 +225,17 @@ async def start(client, message):
         args = message.text.split()
 
         # =========================
-        # NORMAL START
+        # WELCOME MESSAGE
         # =========================
 
         if len(args) < 2:
 
             welcome_text = f"""
 ✨━━━━━━━━━━━━━━━━━━✨
-      🎬 ANIME LISTING BOT 🎬
+🎬  ANIME LISTING BOT  🎬
 ✨━━━━━━━━━━━━━━━━━━✨
 
-🔥 Welcome {message.from_user.first_name}
+🔥 Welcome {message.from_user.first_name} !!
 
 📥 Send:
 /start anime_name
@@ -234,7 +249,7 @@ async def start(client, message):
 """
 
             await message.reply_photo(
-                photo="https://i.imgur.com/8Km9tLL.jpeg",
+                photo="https://files.catbox.moe/7w1l6a.jpg",
                 caption=welcome_text
             )
 
@@ -246,7 +261,17 @@ async def start(client, message):
 
         anime = clean_name(args[1])
 
-        if anime not in anime_db:
+        found_anime = None
+
+        # PARTIAL SEARCH
+        for saved_name in anime_db:
+
+            if anime in saved_name:
+
+                found_anime = saved_name
+                break
+
+        if not found_anime:
 
             await message.reply_text(
                 "❌ Anime not found"
@@ -254,12 +279,13 @@ async def start(client, message):
 
             return
 
-        ids = anime_db[anime]
+        ids = anime_db[found_anime]
 
         await message.reply_text(
-            f"🔥 Found {len(ids)} episodes"
+            f"🔥 Found {len(ids)} episodes of {anime}"
         )
 
+        # SEND EPISODES
         for msg_id in ids:
 
             try:
