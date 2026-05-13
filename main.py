@@ -1,4 +1,15 @@
 # =========================================
+# BOT
+# =========================================
+
+app = Client(
+    "Rei",
+    api_id=34695568,
+    api_hash=fafa070d35e6738bd289023532bad03e,
+    bot_token=8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY
+)
+
+# =========================================
 # SEARCH
 # =========================================
 
@@ -17,26 +28,11 @@ async def search(client, message):
 
     try:
 
-        # =========================================
         # IGNORE BOT MESSAGES
-        # =========================================
-
         if message.from_user and message.from_user.is_bot:
             return
 
-        # =========================================
-        # STOP DOUBLE RESPONSE
-        # =========================================
-
-        if getattr(message, "_processed", False):
-            return
-
-        message._processed = True
-
-        # =========================================
         # CLEAN QUERY
-        # =========================================
-
         query = clean_name(message.text)
 
         if len(query) < 2:
@@ -44,30 +40,20 @@ async def search(client, message):
 
         found = None
 
-        # =========================================
         # EXACT MATCH
-        # =========================================
-
         if query in anime_db:
             found = query
 
-        # =========================================
         # PARTIAL MATCH
-        # =========================================
-
         if not found:
 
             for anime in anime_db:
 
                 if query in anime or anime in query:
-
                     found = anime
                     break
 
-        # =========================================
         # FUZZY MATCH
-        # =========================================
-
         if not found:
 
             matches = difflib.get_close_matches(
@@ -80,10 +66,7 @@ async def search(client, message):
             if matches:
                 found = matches[0]
 
-        # =========================================
         # NOT FOUND
-        # =========================================
-
         if not found:
 
             await message.reply_text(
@@ -92,16 +75,10 @@ async def search(client, message):
 
             return
 
-        # =========================================
-        # GET EPISODES
-        # =========================================
-
+        # GET SAVED EPISODES
         ids = anime_db[found]
 
-        # =========================================
         # REMOVE DUPLICATES
-        # =========================================
-
         unique_items = []
         used = set()
 
@@ -116,10 +93,7 @@ async def search(client, message):
 
         ids = unique_items
 
-        # =========================================
         # SAVE HISTORY
-        # =========================================
-
         user_id = str(message.from_user.id)
 
         create_user(user_id)
@@ -128,10 +102,7 @@ async def search(client, message):
 
         save_users()
 
-        # =========================================
-        # SEND START MESSAGE
-        # =========================================
-
+        # RANDOM QUOTE
         quote = random.choice(quotes)
 
         await message.reply_text(
@@ -144,13 +115,10 @@ async def search(client, message):
 """
         )
 
-        # =========================================
-        # SEND EPISODES
-        # =========================================
-
         success = 0
         failed = 0
 
+        # SEND EPISODES
         for item in ids:
 
             try:
@@ -165,14 +133,13 @@ async def search(client, message):
 
                 await asyncio.sleep(0.5)
 
-            except Exception:
+            except Exception as e:
+
+                print(e)
 
                 failed += 1
 
-        # =========================================
-        # FINAL MESSAGE
-        # =========================================
-
+        # FINAL STATUS
         await message.reply_text(
             f"✅ Sent: {success}\n❌ Failed: {failed}"
         )
