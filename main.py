@@ -357,18 +357,11 @@ async def auto_save(client, message):
             unique_id = message.document.file_unique_id
 
         # CHECK DUPLICATE
-        already_saved = False
-
         for item in anime_db[anime_name]:
 
             if item["file_id"] == unique_id:
 
-                already_saved = True
-                break
-
-        if already_saved:
-
-            return
+                return
 
         # SAVE
         anime_db[anime_name].append({
@@ -394,15 +387,24 @@ async def auto_save(client, message):
 # MANUAL SAVE
 # =========================================
 
-@app.on_message(filters.reply & filters.text)
+@app.on_message(
+    filters.reply &
+    filters.text &
+    ~filters.command([
+        "start",
+        "batch",
+        "stopbatch",
+        "fav"
+    ])
+)
 async def manual_save(client, message):
 
     try:
 
-        replied = message.reply_to_message
-
-        if not replied:
+        if not message.reply_to_message:
             return
+
+        replied = message.reply_to_message
 
         if not (replied.video or replied.document):
             return
@@ -423,18 +425,11 @@ async def manual_save(client, message):
             unique_id = replied.document.file_unique_id
 
         # CHECK DUPLICATE
-        already_saved = False
-
         for item in anime_db[anime_name]:
 
             if item["file_id"] == unique_id:
 
-                already_saved = True
-                break
-
-        if already_saved:
-
-            return
+                return
 
         # SAVE
         anime_db[anime_name].append({
@@ -494,12 +489,16 @@ async def favorite(client, message):
 # SEARCH
 # =========================================
 
-@app.on_message(filters.text & ~filters.command([
-    "start",
-    "batch",
-    "stopbatch",
-    "fav"
-]))
+@app.on_message(
+    filters.text &
+    ~filters.reply &
+    ~filters.command([
+        "start",
+        "batch",
+        "stopbatch",
+        "fav"
+    ])
+)
 async def search(client, message):
 
     try:
@@ -543,13 +542,13 @@ async def search(client, message):
 
         # REMOVE DUPLICATES
         unique_items = []
-        used_ids = set()
+        used = set()
 
         for item in ids:
 
-            if item["file_id"] not in used_ids:
+            if item["file_id"] not in used:
 
-                used_ids.add(item["file_id"])
+                used.add(item["file_id"])
                 unique_items.append(item)
 
         ids = unique_items
