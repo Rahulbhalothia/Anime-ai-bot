@@ -1,18 +1,23 @@
-from pyrogram import Client, filters
-import requests
 import os
 import json
-import cv2
 import re
+import cv2
+import requests
+
+from pyrogram import Client, filters
 
 # =========================
 # CONFIG
 # =========================
 
 API_ID = 34695568
+
 API_HASH = "fafa070d35e6738bd289023532bad03e"
 
 BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
+
+# YOUR STORAGE CHANNEL ID
+STORAGE_CHANNEL = -1002224266205
 
 DB_FILE = "anime_db.json"
 
@@ -60,7 +65,7 @@ def clean_name(name):
     )
 
 # =========================
-# TRACE.MOE AI DETECTION
+# AI DETECTION
 # =========================
 
 def detect_anime(image_path):
@@ -83,7 +88,6 @@ def detect_anime(image_path):
     best = data["result"][0]
 
     anime_name = best.get("filename", "")
-
     confidence = best.get("similarity", 0)
 
     print(f"Detected: {anime_name}")
@@ -95,7 +99,7 @@ def detect_anime(image_path):
     return anime_name
 
 # =========================
-# EXTRACT VIDEO FRAME
+# EXTRACT FRAME
 # =========================
 
 def extract_frame(video_path, output="frame.jpg"):
@@ -112,7 +116,7 @@ def extract_frame(video_path, output="frame.jpg"):
     return output
 
 # =========================
-# SAVE FORWARDED ANIME
+# SAVE EPISODES
 # =========================
 
 @app.on_message(filters.video | filters.document)
@@ -120,13 +124,17 @@ async def save_episode(client, message):
 
     try:
 
-        caption = message.caption or ""
+        print("Downloading video...")
 
         # DOWNLOAD VIDEO
         video_path = await message.download()
 
+        print("Extracting frame...")
+
         # EXTRACT FRAME
         frame = extract_frame(video_path)
+
+        print("Detecting anime...")
 
         # AI DETECTION
         detected = detect_anime(frame)
@@ -145,7 +153,14 @@ async def save_episode(client, message):
         if anime_name not in anime_db:
             anime_db[anime_name] = []
 
-        anime_db[anime_name].append(message.id)
+        # SAVE ORIGINAL MESSAGE ID
+        msg_id = (
+            message.forward_from_message_id
+            if message.forward_from_message_id
+            else message.id
+        )
+
+        anime_db[anime_name].append(msg_id)
 
         save_db()
 
@@ -171,7 +186,7 @@ async def start(client, message):
     if len(args) < 2:
 
         await message.reply_text(
-            "🎬 Send anime from website"
+            "Usage:\n/start sololeveling"
         )
 
         return
@@ -189,16 +204,22 @@ async def start(client, message):
     ids = anime_db[anime]
 
     await message.reply_text(
-        f"🔥 {anime.upper()} Episodes Found"
+        f"🔥 Found {len(ids)} episodes"
     )
 
     for msg_id in ids:
 
-        await client.copy_message(
-            chat_id=message.chat.id,
-            from_chat_id=message.chat.id,
-            message_id=msg_id
-        )
+        try:
+
+            await client.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=STORAGE_CHANNEL,
+                message_id=msg_id
+            )
+
+        except Exception as e:
+
+            print(e)
 
 # =========================
 # RUN
