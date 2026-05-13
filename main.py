@@ -84,6 +84,25 @@ def save_users():
         json.dump(users, f, indent=4)
 
 # =========================================
+# CREATE USER
+# =========================================
+
+def create_user(user_id):
+
+    user_id = str(user_id)
+
+    if user_id not in users:
+
+        users[user_id] = {
+
+            "favorites": [],
+            "history": []
+
+        }
+
+        save_users()
+
+# =========================================
 # CLEAN NAME
 # =========================================
 
@@ -92,6 +111,7 @@ def clean_name(name):
     name = str(name).lower()
 
     remove_words = [
+
         "1080p",
         "720p",
         "480p",
@@ -112,6 +132,7 @@ def clean_name(name):
         "episode",
         "ep",
         "season"
+
     ]
 
     for word in remove_words:
@@ -135,6 +156,7 @@ quotes = [
     "🔥 Keep moving forward.",
     "✨ Anime makes life better.",
     "😎 Shadows are strongest."
+
 ]
 
 # =========================================
@@ -148,14 +170,7 @@ async def start(client, message):
 
         user_id = str(message.from_user.id)
 
-        if user_id not in users:
-
-            users[user_id] = {
-                "favorites": [],
-                "history": []
-            }
-
-            save_users()
+        create_user(user_id)
 
         await message.reply_sticker(
             WELCOME_STICKER
@@ -427,6 +442,8 @@ async def favorite(client, message):
 
         user_id = str(message.from_user.id)
 
+        create_user(user_id)
+
         if anime not in users[user_id]["favorites"]:
 
             users[user_id]["favorites"].append(anime)
@@ -494,6 +511,8 @@ async def search(client, message):
 
         user_id = str(message.from_user.id)
 
+        create_user(user_id)
+
         users[user_id]["history"].append(found)
 
         save_users()
@@ -523,7 +542,11 @@ async def search(client, message):
                 )
             )
 
-        await asyncio.gather(*tasks)
+        for task in tasks:
+
+            await task
+
+            await asyncio.sleep(0.3)
 
     except Exception:
 
