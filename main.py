@@ -1,90 +1,78 @@
 # =========================================
-# 🌸 REI ULTRA PRO ANIME AI ASSISTANT
+# 🌸 REI ULTRA PRO MAX AI ANIME BOT
 # =========================================
 
-import asyncio
 import os
-import json
 import re
+import json
 import difflib
 import traceback
+import asyncio
 import random
 
 from pyrogram import Client, filters
-from pyrogram.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton
-)
+from pyrogram.enums import ChatAction
+from openai import AsyncOpenAI
 
 # =========================================
-# CONFIG
+# VARIABLES
 # =========================================
 
-API_ID = 34695568
-API_HASH = "fafa070d35e6738bd289023532bad03e"
-BOT_TOKEN = "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9wEY"
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 DB_FILE = "anime_list.json"
-USER_DB = "users.json"
+
+# =========================================
+# OPENAI
+# =========================================
+
+ai = AsyncOpenAI(
+    api_key=OPENAI_API_KEY
+)
 
 # =========================================
 # BOT
 # =========================================
 
 app = Client(
-    "Rei",
+    "rei_ultra_pro_max",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN
 )
 
 # =========================================
-# LOAD DATABASE
+# DATABASE
 # =========================================
 
 if os.path.exists(DB_FILE):
-    with open(DB_FILE, "r") as f:
+
+    with open(DB_FILE, "r", encoding="utf-8") as f:
         anime_db = json.load(f)
+
 else:
     anime_db = {}
 
-if os.path.exists(USER_DB):
-    with open(USER_DB, "r") as f:
-        users = json.load(f)
-else:
-    users = {}
-
-batch_mode = {}
-user_controls = {}
-
 # =========================================
-# SAVE DATABASE
+# MEMORY
 # =========================================
 
-def save_db():
-    with open(DB_FILE, "w") as f:
-        json.dump(anime_db, f, indent=4)
-
-def save_users():
-    with open(USER_DB, "w") as f:
-        json.dump(users, f, indent=4)
+chat_memory = {}
 
 # =========================================
-# CREATE USER
+# RANDOM STATUS
 # =========================================
 
-def create_user(user_id):
-
-    user_id = str(user_id)
-
-    if user_id not in users:
-
-        users[user_id] = {
-            "favorites": [],
-            "history": []
-        }
-
-        save_users()
+thinking_lines = [
+    "🌸 Thinking...",
+    "✨ Cooking a reply...",
+    "😎 Rei is thinking...",
+    "💭 One sec...",
+    "🤖 Processing..."
+]
 
 # =========================================
 # CLEAN NAME
@@ -103,45 +91,22 @@ def clean_name(name):
         "aac",
         "mkv",
         "mp4",
-        "hindi",
-        "english",
         "dual",
         "audio",
         "bluray",
         "webrip",
-        "sub",
-        "dub",
-        "official",
         "episode",
         "ep",
-        "season",
-        "-",
-        "_",
-        ".",
-        "[",
-        "]",
-        "(",
-        ")"
+        "season"
     ]
 
     for word in remove_words:
         name = name.replace(word, " ")
 
+    name = re.sub(r"[^a-zA-Z0-9 ]", "", name)
     name = re.sub(r"\s+", " ", name)
 
     return name.strip()
-
-# =========================================
-# QUOTES
-# =========================================
-
-quotes = [
-    "⚡ Wake up to reality.",
-    "🌸 Power comes from within.",
-    "🔥 Keep moving forward.",
-    "✨ Anime makes life better.",
-    "😎 Shadows are strongest."
-]
 
 # =========================================
 # START
@@ -150,365 +115,127 @@ quotes = [
 @app.on_message(filters.command("start"))
 async def start(client, message):
 
-    try:
+    text = f"""
+🌸 Hey {message.from_user.first_name}~ ✨
 
-        user_id = str(message.from_user.id)
+I'm Rei 😎
+Your Ultra Pro Max AI Anime Assistant 💕
 
-        create_user(user_id)
+━━━━━━━━━━━━━━━
 
-        text = f"""
-🌸 Hey {message.from_user.first_name}~
+💬 I can:
+🎬 Send anime episodes
+🤖 Talk like AI
+💖 Chat like a real friend
+🎮 Anime recommendations
+💻 Coding help
+📚 Study help
+😂 Fun conversations
+😭 Emotional support
 
-I'm Rei ✨
-Your Ultra Anime AI Assistant 😎
+━━━━━━━━━━━━━━━
 
-🎬 Anime ka naam bhejo
+✨ Just type naturally~
 
-✨ Example:
+Examples:
 • Solo Leveling
-• Naruto
-• One Piece
-
-🔥 Features:
-• Smart Search
-• Fast Sending
-• Favorites
-• Pause / Resume
-• No Duplicate Episodes
-
-⚡ Commands:
-• /batch anime
-• /stop
-• /continue
+• hello rei
+• best anime
+• mood off
 """
 
-        buttons = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    "🔥 Action",
-                    callback_data="action"
-                ),
-
-                InlineKeyboardButton(
-                    "💕 Romance",
-                    callback_data="romance"
-                )
-            ],
-
-            [
-                InlineKeyboardButton(
-                    "⚔ Isekai",
-                    callback_data="isekai"
-                ),
-
-                InlineKeyboardButton(
-                    "😂 Comedy",
-                    callback_data="comedy"
-                )
-            ]
-        ])
-
-        await message.reply_photo(
-            photo="welcome.png",
-            caption=text,
-            reply_markup=buttons
-        )
-
-    except Exception:
-        traceback.print_exc()
+    await message.reply_text(text)
 
 # =========================================
-# BUTTONS
+# HELP
 # =========================================
 
-@app.on_callback_query()
-async def buttons(client, callback):
+@app.on_message(filters.command("help"))
+async def help_command(client, message):
 
-    try:
+    text = """
+🌸 REI HELP ✨
 
-        data = callback.data
+━━━━━━━━━━━━━━━
 
-        anime_lists = {
+🎬 Anime:
+• Naruto
+• Solo Leveling
+• One Piece
 
-            "action": [
-                "Solo Leveling",
-                "Jujutsu Kaisen",
-                "Demon Slayer"
-            ],
+━━━━━━━━━━━━━━━
 
-            "romance": [
-                "Horimiya",
-                "Toradora",
-                "Your Lie In April"
-            ],
+💬 AI Chat:
+• hello
+• talk to me
+• mood off
 
-            "isekai": [
-                "Overlord",
-                "ReZero",
-                "Mushoku Tensei"
-            ],
+━━━━━━━━━━━━━━━
 
-            "comedy": [
-                "Grand Blue",
-                "Gintama",
-                "Konosuba"
-            ]
-        }
+💻 Coding:
+• python help
+• fix error
 
-        if data in anime_lists:
+━━━━━━━━━━━━━━━
 
-            text = "✨ Recommended Anime:\n\n"
+⚡ Commands:
+/start
+/help
+/reset
+"""
 
-            for anime in anime_lists[data]:
-                text += f"• {anime}\n"
-
-            await callback.message.reply_text(text)
-
-    except Exception:
-        traceback.print_exc()
+    await message.reply_text(text)
 
 # =========================================
-# BATCH MODE
+# RESET
 # =========================================
 
-@app.on_message(filters.command("batch"))
-async def batch(client, message):
+@app.on_message(filters.command("reset"))
+async def reset_memory(client, message):
 
-    try:
+    user_id = str(message.from_user.id)
 
-        args = message.text.split(maxsplit=1)
-
-        if len(args) < 2:
-
-            await message.reply_text(
-                "❌ Usage:\n/batch sololeveling"
-            )
-
-            return
-
-        anime_name = clean_name(args[1])
-
-        batch_mode[message.chat.id] = anime_name
-
-        await message.reply_text(
-            f"🔥 Batch mode ON for {anime_name}"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# STOP BATCH
-# =========================================
-
-@app.on_message(filters.command("stopbatch"))
-async def stop_batch(client, message):
-
-    try:
-
-        if message.chat.id in batch_mode:
-            del batch_mode[message.chat.id]
-
-        await message.reply_text("🛑 Batch mode OFF")
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# STOP SENDING
-# =========================================
-
-@app.on_message(filters.command("stop"))
-async def stop_sending(client, message):
-
-    user_controls[message.chat.id] = "stop"
+    if user_id in chat_memory:
+        del chat_memory[user_id]
 
     await message.reply_text(
-        "🛑 Sending paused."
+        "🧹 Memory cleared~"
     )
 
 # =========================================
-# CONTINUE
-# =========================================
-
-@app.on_message(filters.command("continue"))
-async def continue_sending(client, message):
-
-    user_controls[message.chat.id] = "continue"
-
-    await message.reply_text(
-        "▶ Sending resumed."
-    )
-
-# =========================================
-# AUTO SAVE
-# =========================================
-
-@app.on_message(filters.video | filters.document)
-async def auto_save(client, message):
-
-    try:
-
-        if message.chat.id not in batch_mode:
-            return
-
-        anime_name = batch_mode[message.chat.id]
-
-        if anime_name not in anime_db:
-            anime_db[anime_name] = []
-
-        if message.video:
-            unique_id = message.video.file_unique_id
-        else:
-            unique_id = message.document.file_unique_id
-
-        for item in anime_db[anime_name]:
-
-            if item["file_id"] == unique_id:
-                return
-
-        anime_db[anime_name].append({
-            "file_id": unique_id,
-            "message_id": message.id,
-            "chat_id": message.chat.id
-        })
-
-        save_db()
-
-        total = len(anime_db[anime_name])
-
-        await message.reply_text(
-            f"✅ Saved in {anime_name}\n📦 Total Episodes: {total}"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# MANUAL SAVE
-# =========================================
-
-@app.on_message(
-    filters.reply
-    & filters.text
-    & ~filters.bot
-    & ~filters.command([
-        "start",
-        "batch",
-        "stopbatch",
-        "fav"
-    ])
-)
-async def manual_save(client, message):
-
-    try:
-
-        if not message.reply_to_message:
-            return
-
-        replied = message.reply_to_message
-
-        if not (replied.video or replied.document):
-            return
-
-        anime_name = clean_name(message.text)
-
-        if len(anime_name) < 2:
-            return
-
-        if anime_name not in anime_db:
-            anime_db[anime_name] = []
-
-        if replied.video:
-            unique_id = replied.video.file_unique_id
-        else:
-            unique_id = replied.document.file_unique_id
-
-        for item in anime_db[anime_name]:
-
-            if item["file_id"] == unique_id:
-                return
-
-        anime_db[anime_name].append({
-            "file_id": unique_id,
-            "message_id": replied.id,
-            "chat_id": replied.chat.id
-        })
-
-        save_db()
-
-        total = len(anime_db[anime_name])
-
-        await message.reply_text(
-            f"✨ Saved in {anime_name}\n📦 Total Episodes: {total}"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# FAVORITES
-# =========================================
-
-@app.on_message(filters.command("fav"))
-async def favorite(client, message):
-
-    try:
-
-        args = message.text.split(maxsplit=1)
-
-        if len(args) < 2:
-            return
-
-        anime = clean_name(args[1])
-
-        user_id = str(message.from_user.id)
-
-        create_user(user_id)
-
-        if anime not in users[user_id]["favorites"]:
-
-            users[user_id]["favorites"].append(anime)
-
-            save_users()
-
-        await message.reply_text(
-            f"💕 Added {anime} to favorites"
-        )
-
-    except Exception:
-        traceback.print_exc()
-
-# =========================================
-# SEARCH
+# MAIN SYSTEM
 # =========================================
 
 @app.on_message(
     filters.text
     & filters.private
-    & ~filters.reply
     & ~filters.bot
     & ~filters.command([
         "start",
-        "batch",
-        "stopbatch",
-        "fav",
-        "stop",
-        "continue"
+        "help",
+        "reset"
     ])
 )
-async def search(client, message):
+async def main_system(client, message):
 
     try:
 
-        query = clean_name(message.text)
+        user_text = message.text.strip()
 
-        if len(query) < 2:
+        if not user_text:
             return
+
+        user_id = str(message.from_user.id)
+
+        query = clean_name(user_text)
+
+        # =========================================
+        # SEARCH ANIME
+        # =========================================
 
         found = None
 
-        # exact match
+        # exact
         for anime in anime_db:
 
             db_name = clean_name(anime)
@@ -528,7 +255,7 @@ async def search(client, message):
                     found = anime
                     break
 
-        # fuzzy search
+        # fuzzy
         if not found:
 
             cleaned_db = {
@@ -540,104 +267,209 @@ async def search(client, message):
                 query,
                 cleaned_db.keys(),
                 n=1,
-                cutoff=0.45
+                cutoff=0.2
             )
 
             if matches:
                 found = cleaned_db[matches[0]]
 
-        if not found:
+        # =========================================
+        # SEND ANIME
+        # =========================================
 
-            await message.reply_text(
-                "😭 Anime not found"
+        if found:
+
+            ids = anime_db[found]
+
+            await client.send_chat_action(
+                message.chat.id,
+                ChatAction.TYPING
+            )
+
+            status = await message.reply_text(
+                f"🔥 {found.title()} mil gaya!\n"
+                f"📦 Sending {len(ids)} episodes..."
+            )
+
+            success = 0
+            failed = 0
+
+            used = set()
+
+            for item in ids:
+
+                try:
+
+                    key = (
+                        item.get("message_id"),
+                        item.get("chat_id")
+                    )
+
+                    if key in used:
+                        continue
+
+                    used.add(key)
+
+                    await client.copy_message(
+                        chat_id=message.chat.id,
+                        from_chat_id=item["chat_id"],
+                        message_id=item["message_id"]
+                    )
+
+                    success += 1
+
+                    if success % 5 == 0:
+
+                        try:
+
+                            await status.edit_text(
+                                f"📦 Sending Episodes...\n\n"
+                                f"✅ Sent: {success}\n"
+                                f"❌ Failed: {failed}"
+                            )
+
+                        except:
+                            pass
+
+                    await asyncio.sleep(0.7)
+
+                except Exception as e:
+
+                    print(e)
+
+                    failed += 1
+
+            await status.edit_text(
+                f"✨ Done Sending\n\n"
+                f"✅ Sent: {success}\n"
+                f"❌ Failed: {failed}"
             )
 
             return
 
-        ids = anime_db[found]
+        # =========================================
+        # AI CHAT SYSTEM
+        # =========================================
 
-        # remove duplicates
-        unique_items = []
-        used = set()
+        if user_id not in chat_memory:
+            chat_memory[user_id] = []
 
-        for item in ids:
+        chat_memory[user_id].append({
+            "role": "user",
+            "content": user_text
+        })
 
-            key = (
-                item.get("message_id"),
-                item.get("chat_id")
-            )
+        # limit memory
+        chat_memory[user_id] = chat_memory[user_id][-20:]
 
-            if key not in used:
-
-                used.add(key)
-
-                unique_items.append(item)
-
-        ids = unique_items
-
-        quote = random.choice(quotes)
-
-        status = await message.reply_text(
-            f"✨ {found.title()} mil gaya!\n\n"
-            f"🔥 Sending {len(ids)} episodes...\n\n"
-            f"{quote}"
+        await client.send_chat_action(
+            message.chat.id,
+            ChatAction.TYPING
         )
 
-        success = 0
-        failed = 0
-
-        user_controls[message.chat.id] = "continue"
-
-        for item in ids:
-
-            while user_controls.get(message.chat.id) == "stop":
-                await asyncio.sleep(1)
-
-            try:
-
-                from_chat = item.get("chat_id")
-
-                if not from_chat:
-                    failed += 1
-                    continue
-
-                await client.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=from_chat,
-                    message_id=item["message_id"]
-                )
-
-                success += 1
-
-                if success % 5 == 0:
-
-                    try:
-
-                        await status.edit_text(
-                            f"📦 Sending Episodes...\n\n"
-                            f"✅ Sent: {success}\n"
-                            f"❌ Failed: {failed}"
-                        )
-
-                    except:
-                        pass
-
-                await asyncio.sleep(0.7)
-
-            except Exception as e:
-
-                print(e)
-
-                failed += 1
-
-        await status.edit_text(
-            f"✨ Done Sending\n\n"
-            f"✅ Sent: {success}\n"
-            f"❌ Failed: {failed}"
+        wait = await message.reply_text(
+            random.choice(thinking_lines)
         )
 
-    except Exception:
+        # =========================================
+        # AI RESPONSE
+        # =========================================
+
+        response = await ai.chat.completions.create(
+
+            model="gpt-4.1-mini",
+
+            messages=[
+
+                {
+                    "role": "system",
+                    "content": """
+
+You are Rei 🌸
+
+You are an ultra smart anime AI assistant.
+
+You behave like:
+- Real human
+- Friendly online friend
+- Funny
+- Emotional
+- Calm
+- Cute
+- Smart
+
+You LOVE anime deeply.
+
+You know:
+- Naruto
+- One Piece
+- Dragon Ball
+- Bleach
+- Solo Leveling
+- Jujutsu Kaisen
+- Demon Slayer
+- Attack on Titan
+- Tokyo Ghoul
+- Chainsaw Man
+- All major anime
+
+You also know:
+- coding
+- python
+- gaming
+- studies
+- memes
+- technology
+
+Your speaking style:
+- Human-like
+- Casual
+- Natural
+- Stylish
+- Use emojis naturally
+- Never robotic
+- Never dry
+- Keep replies medium size
+
+Behavior:
+- understand emotions
+- react naturally
+- don't spam emojis
+- don't repeat phrases
+- feel like a real person
+
+"""
+                },
+
+                *chat_memory[user_id]
+
+            ],
+
+            temperature=1.0,
+            max_tokens=500
+
+        )
+
+        reply = response.choices[0].message.content
+
+        # save memory
+        chat_memory[user_id].append({
+            "role": "assistant",
+            "content": reply
+        })
+
+        # send
+        await wait.edit_text(reply)
+
+    except Exception as e:
+
+        print(e)
+
         traceback.print_exc()
+
+        await message.reply_text(
+            "❌ Something went wrong..."
+        )
 
 # =========================================
 # RUN
@@ -645,6 +477,6 @@ async def search(client, message):
 
 if __name__ == "__main__":
 
-    print("🌸 Rei Ultra Anime AI Running...")
+    print("🌸 Rei Ultra Pro Max AI Running...")
 
     app.run()
