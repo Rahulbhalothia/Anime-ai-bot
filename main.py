@@ -1,3 +1,7 @@
+# =========================================
+# 🌸 REI ULTRA AI ANIME BOT
+# =========================================
+
 import os
 import re
 import json
@@ -56,41 +60,28 @@ if isinstance(anime_db, list):
     anime_db = {}
 
 # =========================================
-# MEMORY
-# =========================================
-
-chat_memory = {}
-
-# =========================================
-# THINKING
-# =========================================
-
-thinking_lines = [
-
-    "🌸 Thinking...",
-    "✨ Cooking reply...",
-    "😎 Rei thinking...",
-    "💭 One sec...",
-    "💕 Typing..."
-
-]
-
-# =========================================
 # SAVE DATABASE
 # =========================================
 
 def save_db():
 
     with open(DB_FILE, "w", encoding="utf-8") as f:
+
         json.dump(anime_db, f, indent=4)
+
+# =========================================
+# MEMORY
+# =========================================
+
+chat_memory = {}
 
 # =========================================
 # CLEAN NAME
 # =========================================
 
-def clean_name(name):
+def clean_name(text):
 
-    name = str(name).lower()
+    text = str(text).lower()
 
     remove_words = [
 
@@ -113,101 +104,14 @@ def clean_name(name):
     ]
 
     for word in remove_words:
-        name = name.replace(word, " ")
 
-    name = re.sub(r"[^a-zA-Z0-9 ]", "", name)
-    name = re.sub(r"\s+", " ", name)
+        text = text.replace(word, " ")
 
-    return name.strip()
+    text = re.sub(r"[^a-zA-Z0-9 ]", "", text)
 
-# =========================================
-# GROQ AI
-# =========================================
+    text = re.sub(r"\s+", " ", text)
 
-def ask_ai(user_id, user_text):
-
-    if user_id not in chat_memory:
-        chat_memory[user_id] = []
-
-    chat_memory[user_id].append({
-
-        "role": "user",
-        "content": user_text
-
-    })
-
-    chat_memory[user_id] = chat_memory[user_id][-10:]
-
-    messages = [
-
-        {
-            "role": "system",
-            "content": """
-
-You are Rei 🌸
-
-You are:
-- cute
-- funny
-- emotional
-- anime girl
-- smart
-- human-like
-
-Reply in short stylish Hinglish.
-
-Never sound robotic.
-
-"""
-        }
-
-    ]
-
-    messages.extend(chat_memory[user_id])
-
-    response = requests.post(
-
-        "https://api.groq.com/openai/v1/chat/completions",
-
-        headers={
-
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-
-        },
-
-        json={
-
-            "model": "llama-3.3-70b-versatile",
-
-            "messages": messages,
-
-            "temperature": 1,
-
-            "max_tokens": 300
-
-        }
-
-    )
-
-    data = response.json()
-
-    print(data)
-
-    if "choices" not in data:
-
-        return "🌸 Rei ka brain overload ho gaya 😭"
-
-    reply = data["choices"][0]["message"]["content"]
-
-    chat_memory[user_id].append({
-
-        "role": "assistant",
-        "content": reply
-
-    })
-
-    return reply
+    return text.strip()
 
 # =========================================
 # START
@@ -216,7 +120,7 @@ Never sound robotic.
 @app.on_message(filters.command("start"))
 async def start(client, message):
 
-    text = f"""
+    txt = f"""
 
 🌸 Hey {message.from_user.first_name}~
 
@@ -226,9 +130,9 @@ I'm Rei 😎
 
 🎬 Anime Search
 🤖 Smart AI Chat
-😂 Funny Replies
 💕 Emotional Support
 🎮 Anime Recommendations
+💻 Coding Help
 
 ━━━━━━━━━━━━━━━
 
@@ -242,17 +146,17 @@ Examples:
 
 """
 
-    await message.reply_text(text)
+    await message.reply_text(txt)
 
 # =========================================
-# AUTO INDEX
+# AUTO SAVE CHANNEL ANIME
 # =========================================
 
 @app.on_message(
     filters.chat(CHANNEL_ID)
     & (filters.video | filters.document)
 )
-async def auto_index(client, message):
+async def auto_save(client, message):
 
     try:
 
@@ -274,6 +178,7 @@ async def auto_index(client, message):
             return
 
         if anime_name not in anime_db:
+
             anime_db[anime_name] = []
 
         anime_db[anime_name].append({
@@ -285,19 +190,126 @@ async def auto_index(client, message):
 
         save_db()
 
-        print(f"Saved: {anime_name}")
+        print(f"✅ Saved: {anime_name}")
 
     except Exception as e:
 
         print(e)
 
 # =========================================
+# AI CHAT
+# =========================================
+
+def ask_ai(user_id, user_text):
+
+    try:
+
+        if user_id not in chat_memory:
+
+            chat_memory[user_id] = []
+
+        chat_memory[user_id].append({
+
+            "role": "user",
+            "content": user_text
+
+        })
+
+        chat_memory[user_id] = chat_memory[user_id][-10:]
+
+        messages = [
+
+            {
+                "role": "system",
+                "content": """
+
+You are Rei 🌸
+
+You are:
+- cute
+- emotional
+- funny
+- anime lover
+- smart
+- human-like
+
+Reply naturally in Hinglish.
+
+Never sound robotic.
+
+You deeply know:
+- anime
+- gaming
+- coding
+- memes
+- emotional support
+
+Keep replies medium and stylish.
+
+"""
+            }
+
+        ]
+
+        messages.extend(chat_memory[user_id])
+
+        response = requests.post(
+
+            "https://api.groq.com/openai/v1/chat/completions",
+
+            headers={
+
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+
+            },
+
+            json={
+
+                "model": "llama-3.3-70b-versatile",
+
+                "messages": messages,
+
+                "temperature": 1,
+
+                "max_tokens": 300
+
+            }
+
+        )
+
+        data = response.json()
+
+        print(data)
+
+        if "choices" not in data:
+
+            return "🌸 Rei ka AI brain overload ho gaya 😭"
+
+        reply = data["choices"][0]["message"]["content"]
+
+        chat_memory[user_id].append({
+
+            "role": "assistant",
+            "content": reply
+
+        })
+
+        return reply
+
+    except Exception as e:
+
+        print(e)
+
+        return "🌸 AI Error aa gaya 😭"
+
+# =========================================
 # MAIN SYSTEM
 # =========================================
 
 @app.on_message(
-    filters.text
-    & filters.private
+    filters.private
+    & filters.text
     & ~filters.bot
     & ~filters.command(["start"])
 )
@@ -310,21 +322,27 @@ async def main_system(client, message):
         if not user_text:
             return
 
-        user_id = str(message.from_user.id)
-
         query = clean_name(user_text)
 
         found = None
 
-        # EXACT MATCH
+        # =========================================
+        # EXACT SEARCH
+        # =========================================
+
         for anime in anime_db:
 
-            if query == clean_name(anime):
+            db_name = clean_name(anime)
+
+            if query == db_name:
 
                 found = anime
                 break
 
-        # PARTIAL MATCH
+        # =========================================
+        # PARTIAL SEARCH
+        # =========================================
+
         if not found:
 
             for anime in anime_db:
@@ -336,13 +354,16 @@ async def main_system(client, message):
                     found = anime
                     break
 
-        # FUZZY MATCH
+        # =========================================
+        # FUZZY SEARCH
+        # =========================================
+
         if not found:
 
             cleaned_db = {
 
-                clean_name(str(k)): k
-                for k in anime_db
+                clean_name(k): k
+                for k in anime_db.keys()
 
             }
 
@@ -356,6 +377,7 @@ async def main_system(client, message):
             )
 
             if matches:
+
                 found = cleaned_db[matches[0]]
 
         # =========================================
@@ -364,7 +386,7 @@ async def main_system(client, message):
 
         if found:
 
-            ids = anime_db[found]
+            episodes = anime_db[found]
 
             status = await message.reply_text(
 
@@ -375,15 +397,17 @@ async def main_system(client, message):
 
             sent = 0
 
-            for item in ids:
+            for ep in episodes:
 
                 try:
 
                     await client.copy_message(
 
                         chat_id=message.chat.id,
-                        from_chat_id=item["chat_id"],
-                        message_id=item["message_id"]
+
+                        from_chat_id=ep["chat_id"],
+
+                        message_id=ep["message_id"]
 
                     )
 
@@ -415,29 +439,41 @@ async def main_system(client, message):
         )
 
         wait = await message.reply_text(
-            random.choice(thinking_lines)
+
+            random.choice([
+
+                "🌸 Thinking...",
+                "💭 Hmm...",
+                "✨ Cooking reply...",
+                "💕 Typing..."
+
+            ])
+
         )
 
-        reply = ask_ai(user_id, user_text)
+        reply = ask_ai(
+
+            str(message.from_user.id),
+            user_text
+
+        )
 
         await wait.edit_text(reply)
 
     except Exception as e:
 
-        print(e)
-
         traceback.print_exc()
 
         await message.reply_text(
+
             "❌ Error aa gaya..."
+
         )
 
 # =========================================
 # RUN
 # =========================================
 
-if __name__ == "__main__":
+print("🌸 Rei Ultra AI Running...")
 
-    print("🌸 Rei Ultra AI Running...")
-
-    app.run()
+app.run()
