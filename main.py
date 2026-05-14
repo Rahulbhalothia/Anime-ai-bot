@@ -18,11 +18,11 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-REI_API_KEY = os.getenv("REI_API_KEY")
-
-DB_FILE = "anime_db.json"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 CHANNEL_ID = -1002140125432
+
+DB_FILE = "anime_db.json"
 
 # =========================================
 # BOT
@@ -62,20 +62,21 @@ if isinstance(anime_db, list):
 chat_memory = {}
 
 # =========================================
-# THINKING LINES
+# THINKING
 # =========================================
 
 thinking_lines = [
+
     "🌸 Thinking...",
     "✨ Cooking reply...",
     "😎 Rei thinking...",
     "💭 One sec...",
-    "🤖 Processing...",
     "💕 Typing..."
+
 ]
 
 # =========================================
-# SAVE DB
+# SAVE DATABASE
 # =========================================
 
 def save_db():
@@ -92,6 +93,7 @@ def clean_name(name):
     name = str(name).lower()
 
     remove_words = [
+
         "1080p",
         "720p",
         "480p",
@@ -107,6 +109,7 @@ def clean_name(name):
         "episode",
         "ep",
         "season"
+
     ]
 
     for word in remove_words:
@@ -118,7 +121,7 @@ def clean_name(name):
     return name.strip()
 
 # =========================================
-# OPENROUTER AI
+# GROQ AI
 # =========================================
 
 def ask_ai(user_id, user_text):
@@ -127,8 +130,10 @@ def ask_ai(user_id, user_text):
         chat_memory[user_id] = []
 
     chat_memory[user_id].append({
+
         "role": "user",
         "content": user_text
+
     })
 
     chat_memory[user_id] = chat_memory[user_id][-10:]
@@ -146,14 +151,10 @@ You are:
 - funny
 - emotional
 - anime girl
-- human-like
 - smart
+- human-like
 
-You love anime.
-
-Reply in stylish Hinglish.
-
-Keep replies short and natural.
+Reply in short stylish Hinglish.
 
 Never sound robotic.
 
@@ -166,20 +167,24 @@ Never sound robotic.
 
     response = requests.post(
 
-        url="https://openrouter.ai/api/v1/chat/completions",
+        "https://api.groq.com/openai/v1/chat/completions",
 
         headers={
 
-            "Authorization": f"Bearer {REI_API_KEY}",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
 
         },
 
         json={
 
-            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "model": "llama-3.3-70b-versatile",
 
-            "messages": messages
+            "messages": messages,
+
+            "temperature": 1,
+
+            "max_tokens": 300
 
         }
 
@@ -187,11 +192,19 @@ Never sound robotic.
 
     data = response.json()
 
+    print(data)
+
+    if "choices" not in data:
+
+        return "🌸 Rei ka brain overload ho gaya 😭"
+
     reply = data["choices"][0]["message"]["content"]
 
     chat_memory[user_id].append({
+
         "role": "assistant",
         "content": reply
+
     })
 
     return reply
@@ -204,6 +217,7 @@ Never sound robotic.
 async def start(client, message):
 
     text = f"""
+
 🌸 Hey {message.from_user.first_name}~
 
 I'm Rei 😎
@@ -225,6 +239,7 @@ Examples:
 • Solo Leveling
 • hello rei
 • mood off
+
 """
 
     await message.reply_text(text)
@@ -301,16 +316,15 @@ async def main_system(client, message):
 
         found = None
 
-        # exact match
+        # EXACT MATCH
         for anime in anime_db:
 
-            db_name = clean_name(anime)
+            if query == clean_name(anime):
 
-            if query == db_name:
                 found = anime
                 break
 
-        # partial match
+        # PARTIAL MATCH
         if not found:
 
             for anime in anime_db:
@@ -318,22 +332,27 @@ async def main_system(client, message):
                 db_name = clean_name(anime)
 
                 if query in db_name or db_name in query:
+
                     found = anime
                     break
 
-        # fuzzy match
+        # FUZZY MATCH
         if not found:
 
             cleaned_db = {
+
                 clean_name(str(k)): k
                 for k in anime_db
+
             }
 
             matches = difflib.get_close_matches(
+
                 query,
                 cleaned_db.keys(),
                 n=1,
                 cutoff=0.3
+
             )
 
             if matches:
@@ -347,29 +366,28 @@ async def main_system(client, message):
 
             ids = anime_db[found]
 
-            await client.send_chat_action(
-                message.chat.id,
-                ChatAction.TYPING
-            )
-
             status = await message.reply_text(
+
                 f"🔥 {found.title()} mil gaya!\n"
                 f"📦 Sending Episodes..."
+
             )
 
-            success = 0
+            sent = 0
 
             for item in ids:
 
                 try:
 
                     await client.copy_message(
+
                         chat_id=message.chat.id,
                         from_chat_id=item["chat_id"],
                         message_id=item["message_id"]
+
                     )
 
-                    success += 1
+                    sent += 1
 
                     await asyncio.sleep(0.5)
 
@@ -377,8 +395,10 @@ async def main_system(client, message):
                     pass
 
             await status.edit_text(
+
                 f"✅ Done\n\n"
-                f"📦 Sent: {success}"
+                f"📦 Sent: {sent}"
+
             )
 
             return
@@ -388,8 +408,10 @@ async def main_system(client, message):
         # =========================================
 
         await client.send_chat_action(
+
             message.chat.id,
             ChatAction.TYPING
+
         )
 
         wait = await message.reply_text(
