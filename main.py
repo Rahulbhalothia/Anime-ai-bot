@@ -274,7 +274,7 @@ Keep replies stylish and short.
 
             json={
 
-                "model": "openchat/openchat-7b",
+                "model": "mistralai/mistral-7b-instruct:free",
 
                 "messages": messages
 
@@ -285,6 +285,8 @@ Keep replies stylish and short.
         )
 
         data = response.json()
+
+        print(data)
 
         reply = data["choices"][0]["message"]["content"]
 
