@@ -39,7 +39,7 @@ genai.configure(
 )
 
 model = genai.GenerativeModel(
-    "gemini-1.5-flash"
+    "gemini-1.5-flash-latest"
 )
 
 # =========================================
@@ -81,7 +81,7 @@ if isinstance(anime_db, list):
 chat_memory = {}
 
 # =========================================
-# RANDOM THINKING
+# THINKING LINES
 # =========================================
 
 thinking_lines = [
@@ -450,7 +450,10 @@ User:
 
         response = model.generate_content(prompt)
 
-        reply = response.text
+        try:
+            reply = response.text
+        except:
+            reply = "🌸 Rei is sleepy right now~ try again 😭"
 
         # SAVE MEMORY
         chat_memory[user_id].append({
