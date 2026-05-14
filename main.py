@@ -1,5 +1,5 @@
 # =========================================
-# 🌸 REI ULTRA AI ANIME BOT (OPENROUTER)
+# 🌸 REI ULTRA AI ANIME BOT
 # =========================================
 
 import os
@@ -80,12 +80,13 @@ thinking_lines = [
 ]
 
 # =========================================
-# 💾 SAVE DB
+# 💾 SAVE DATABASE
 # =========================================
 
 def save_db():
 
     with open(DB_FILE, "w", encoding="utf-8") as f:
+
         json.dump(anime_db, f, indent=4)
 
 # =========================================
@@ -134,12 +135,14 @@ async def start(client, message):
 
 I'm Rei 😎
 
-✨ Smart Anime AI
+━━━━━━━━━━━━━━━
+
 🎬 Anime Search
-🤖 AI Chat
+🤖 Smart AI Chat
 💻 Coding Help
 😂 Funny Replies
 🎮 Anime Recommendations
+💕 Emotional Support
 
 ━━━━━━━━━━━━━━━
 
@@ -154,7 +157,7 @@ Examples:
     await message.reply_text(txt)
 
 # =========================================
-# 📥 AUTO SAVE CHANNEL ANIME
+# 📥 AUTO SAVE ANIME
 # =========================================
 
 @app.on_message(
@@ -201,7 +204,7 @@ async def auto_save(client, message):
         print(e)
 
 # =========================================
-# 🤖 OPENROUTER AI CHAT
+# 🤖 AI CHAT FUNCTION
 # =========================================
 
 def get_ai_reply(user_id, user_text):
@@ -212,11 +215,13 @@ def get_ai_reply(user_id, user_text):
             chat_memory[user_id] = []
 
         chat_memory[user_id].append({
+
             "role": "user",
             "content": user_text
+
         })
 
-        chat_memory[user_id] = chat_memory[user_id][-12:]
+        chat_memory[user_id] = chat_memory[user_id][-10:]
 
         messages = [
 
@@ -234,7 +239,7 @@ You are:
 - anime lover
 - human-like
 
-Reply in casual Hinglish.
+Reply in natural Hinglish.
 
 You love:
 - Naruto
@@ -247,8 +252,8 @@ You love:
 - Memes
 
 Never sound robotic.
+Keep replies stylish and short.
 
-Keep replies natural.
 """
             }
 
@@ -258,7 +263,7 @@ Keep replies natural.
 
         response = requests.post(
 
-            url="https://openrouter.ai/api/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
 
             headers={
 
@@ -321,16 +326,17 @@ async def main_system(client, message):
 
         found = None
 
-        # EXACT
+        # EXACT SEARCH
         for anime in anime_db:
 
             db_name = clean_name(anime)
 
             if query == db_name:
+
                 found = anime
                 break
 
-        # PARTIAL
+        # PARTIAL SEARCH
         if not found:
 
             for anime in anime_db:
@@ -338,25 +344,107 @@ async def main_system(client, message):
                 db_name = clean_name(anime)
 
                 if query in db_name or db_name in query:
+
                     found = anime
                     break
 
-        # FUZZY
+        # FUZZY SEARCH
         if not found:
 
             cleaned_db = {
+
                 clean_name(k): k
                 for k in anime_db
+
             }
 
             matches = difflib.get_close_matches(
+
                 query,
                 cleaned_db.keys(),
                 n=1,
                 cutoff=0.3
+
             )
 
             if matches:
+
                 found = cleaned_db[matches[0]]
 
-        #
+        # =========================================
+        # SEND ANIME
+        # =========================================
+
+        if found:
+
+            episodes = anime_db[found]
+
+            await message.reply_text(
+
+                f"🔥 {found.title()} mil gaya!\n"
+                f"📦 Sending Episodes..."
+
+            )
+
+            for ep in episodes:
+
+                try:
+
+                    await client.copy_message(
+
+                        chat_id=message.chat.id,
+                        from_chat_id=ep["chat_id"],
+                        message_id=ep["message_id"]
+
+                    )
+
+                    await asyncio.sleep(0.5)
+
+                except:
+                    pass
+
+            return
+
+        # =========================================
+        # AI CHAT
+        # =========================================
+
+        await client.send_chat_action(
+
+            message.chat.id,
+            ChatAction.TYPING
+
+        )
+
+        wait = await message.reply_text(
+
+            thinking_lines[0]
+
+        )
+
+        reply = get_ai_reply(
+
+            str(message.from_user.id),
+            text
+
+        )
+
+        await wait.edit_text(reply)
+
+    except Exception as e:
+
+        traceback.print_exc()
+
+        await message.reply_text(
+
+            "❌ Error aa gaya..."
+
+        )
+
+# =========================================
+# ▶️ RUN
+# =========================================
+
+print("🌸 Rei Ultra AI Running...")
+
+app.run()
