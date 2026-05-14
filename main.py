@@ -1,7 +1,3 @@
-# =========================================
-# 🌸 REI ULTRA AI ANIME BOT
-# =========================================
-
 import os
 import re
 import json
@@ -76,12 +72,32 @@ def save_db():
 chat_memory = {}
 
 # =========================================
+# BATCH DATA
+# =========================================
+
+batch_data = {}
+
+# =========================================
+# THINKING
+# =========================================
+
+thinking_lines = [
+
+    "🌸 Thinking...",
+    "✨ Cooking reply...",
+    "😎 Rei thinking...",
+    "💭 One sec...",
+    "💕 Typing..."
+
+]
+
+# =========================================
 # CLEAN NAME
 # =========================================
 
-def clean_name(text):
+def clean_name(name):
 
-    text = str(text).lower()
+    name = str(name).lower()
 
     remove_words = [
 
@@ -105,13 +121,120 @@ def clean_name(text):
 
     for word in remove_words:
 
-        text = text.replace(word, " ")
+        name = name.replace(word, " ")
 
-    text = re.sub(r"[^a-zA-Z0-9 ]", "", text)
+    name = re.sub(r"[^a-zA-Z0-9 ]", "", name)
 
-    text = re.sub(r"\s+", " ", text)
+    name = re.sub(r"\s+", " ", name)
 
-    return text.strip()
+    return name.strip()
+
+# =========================================
+# AI CHAT
+# =========================================
+
+def ask_ai(user_id, user_text):
+
+    try:
+
+        if user_id not in chat_memory:
+
+            chat_memory[user_id] = []
+
+        chat_memory[user_id].append({
+
+            "role": "user",
+            "content": user_text
+
+        })
+
+        chat_memory[user_id] = chat_memory[user_id][-10:]
+
+        messages = [
+
+            {
+                "role": "system",
+                "content": """
+
+You are Rei 🌸
+
+You are:
+- cute
+- emotional
+- funny
+- smart
+- anime girl
+- human-like
+
+Reply naturally in Hinglish.
+
+Never sound robotic.
+
+You deeply know:
+- anime
+- gaming
+- coding
+- memes
+- emotional support
+
+Keep replies stylish and medium size.
+
+"""
+            }
+
+        ]
+
+        messages.extend(chat_memory[user_id])
+
+        response = requests.post(
+
+            "https://api.groq.com/openai/v1/chat/completions",
+
+            headers={
+
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+
+            },
+
+            json={
+
+                "model": "llama-3.3-70b-versatile",
+
+                "messages": messages,
+
+                "temperature": 1,
+
+                "max_tokens": 300
+
+            }
+
+        )
+
+        data = response.json()
+
+        if "choices" not in data:
+
+            print(data)
+
+            return "🌸 Rei ka AI brain overload ho gaya 😭"
+
+        reply = data["choices"][0]["message"]["content"]
+
+        chat_memory[user_id].append({
+
+            "role": "assistant",
+            "content": reply
+
+        })
+
+        return reply
+
+    except Exception as e:
+
+        print(e)
+
+        return "🌸 AI Error aa gaya 😭"
 
 # =========================================
 # START
@@ -120,7 +243,7 @@ def clean_name(text):
 @app.on_message(filters.command("start"))
 async def start(client, message):
 
-    txt = f"""
+    text = f"""
 
 🌸 Hey {message.from_user.first_name}~
 
@@ -138,18 +261,17 @@ I'm Rei 😎
 
 Examples:
 
-• Naruto
-• Dragon Ball
-• Solo Leveling
 • hello rei
 • mood off
+• best anime
+• /batch Naruto
 
 """
 
-    await message.reply_text(txt)
+    await message.reply_text(text)
 
 # =========================================
-# AUTO SAVE CHANNEL ANIME
+# AUTO SAVE ANIME
 # =========================================
 
 @app.on_message(
@@ -197,123 +319,127 @@ async def auto_save(client, message):
         print(e)
 
 # =========================================
-# AI CHAT
+# BATCH COMMAND
 # =========================================
 
-def ask_ai(user_id, user_text):
+@app.on_message(filters.command("batch"))
+async def batch_send(client, message):
 
     try:
 
-        if user_id not in chat_memory:
+        query = message.text.split(None, 1)[1]
 
-            chat_memory[user_id] = []
+    except:
 
-        chat_memory[user_id].append({
-
-            "role": "user",
-            "content": user_text
-
-        })
-
-        chat_memory[user_id] = chat_memory[user_id][-10:]
-
-        messages = [
-
-            {
-                "role": "system",
-                "content": """
-
-You are Rei 🌸
-
-You are:
-- cute
-- emotional
-- funny
-- anime lover
-- smart
-- human-like
-
-Reply naturally in Hinglish.
-
-Never sound robotic.
-
-You deeply know:
-- anime
-- gaming
-- coding
-- memes
-- emotional support
-
-Keep replies medium and stylish.
-
-"""
-            }
-
-        ]
-
-        messages.extend(chat_memory[user_id])
-
-        response = requests.post(
-
-            "https://api.groq.com/openai/v1/chat/completions",
-
-            headers={
-
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-
-            },
-
-            json={
-
-                "model": "llama-3.3-70b-versatile",
-
-                "messages": messages,
-
-                "temperature": 1,
-
-                "max_tokens": 300
-
-            }
-
+        return await message.reply_text(
+            "Usage:\n/batch Naruto"
         )
 
-        data = response.json()
+    query = clean_name(query)
 
-        print(data)
+    found = None
 
-        if "choices" not in data:
+    for anime in anime_db:
 
-            return "🌸 Rei ka AI brain overload ho gaya 😭"
+        db_name = clean_name(anime)
 
-        reply = data["choices"][0]["message"]["content"]
+        if query == db_name or query in db_name:
 
-        chat_memory[user_id].append({
+            found = anime
+            break
 
-            "role": "assistant",
-            "content": reply
+    if not found:
 
-        })
+        cleaned_db = {
+            clean_name(k): k
+            for k in anime_db.keys()
+        }
 
-        return reply
+        matches = difflib.get_close_matches(
+            query,
+            cleaned_db.keys(),
+            n=1,
+            cutoff=0.3
+        )
 
-    except Exception as e:
+        if matches:
 
-        print(e)
+            found = cleaned_db[matches[0]]
 
-        return "🌸 AI Error aa gaya 😭"
+    if not found:
+
+        return await message.reply_text(
+            "❌ Anime not found"
+        )
+
+    episodes = anime_db[found]
+
+    batch_data[message.chat.id] = {
+
+        "anime": found,
+        "episodes": episodes,
+        "index": 0,
+        "stopped": False
+
+    }
+
+    status = await message.reply_text(
+        f"📦 Sending {found.title()}..."
+    )
+
+    while True:
+
+        data = batch_data.get(message.chat.id)
+
+        if not data:
+            return
+
+        if data["stopped"]:
+
+            await status.edit_text(
+                "🛑 Batch paused."
+            )
+
+            return
+
+        if data["index"] >= len(data["episodes"]):
+
+            await status.edit_text(
+                "✅ Batch completed."
+            )
+
+            del batch_data[message.chat.id]
+
+            return
+
+        ep = data["episodes"][data["index"]]
+
+        try:
+
+            await client.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=ep["chat_id"],
+                message_id=ep["message_id"]
+            )
+
+        except:
+            pass
+
+        data["index"] += 1
+
+        await asyncio.sleep(0.7)
 
 # =========================================
-# MAIN SYSTEM
+# MAIN CHAT
 # =========================================
 
 @app.on_message(
     filters.private
     & filters.text
     & ~filters.bot
-    & ~filters.command(["start"])
+    & ~filters.command(["start", "batch"])
 )
-async def main_system(client, message):
+async def main_chat(client, message):
 
     try:
 
@@ -322,108 +448,98 @@ async def main_system(client, message):
         if not user_text:
             return
 
-        query = clean_name(user_text)
-
-        found = None
+        text_lower = user_text.lower()
 
         # =========================================
-        # EXACT SEARCH
+        # SMART STOP
         # =========================================
 
-        for anime in anime_db:
+        if text_lower in [
 
-            db_name = clean_name(anime)
+            "stop",
+            "pause",
+            "ruk",
+            "band"
 
-            if query == db_name:
+        ]:
 
-                found = anime
-                break
+            if message.chat.id in batch_data:
 
-        # =========================================
-        # PARTIAL SEARCH
-        # =========================================
+                batch_data[message.chat.id]["stopped"] = True
 
-        if not found:
-
-            for anime in anime_db:
-
-                db_name = clean_name(anime)
-
-                if query in db_name or db_name in query:
-
-                    found = anime
-                    break
+                return await message.reply_text(
+                    "🛑 Okay, batch paused."
+                )
 
         # =========================================
-        # FUZZY SEARCH
+        # SMART CONTINUE
         # =========================================
 
-        if not found:
+        if text_lower in [
 
-            cleaned_db = {
+            "continue",
+            "resume",
+            "start again",
+            "chalu"
 
-                clean_name(k): k
-                for k in anime_db.keys()
+        ]:
 
-            }
+            if message.chat.id not in batch_data:
 
-            matches = difflib.get_close_matches(
+                return await message.reply_text(
+                    "❌ No paused batch."
+                )
 
-                query,
-                cleaned_db.keys(),
-                n=1,
-                cutoff=0.3
+            if not batch_data[message.chat.id]["stopped"]:
 
+                return await message.reply_text(
+                    "⚡ Already running."
+                )
+
+            batch_data[message.chat.id]["stopped"] = False
+
+            await message.reply_text(
+                "▶ Continuing batch..."
             )
 
-            if matches:
+            data = batch_data[message.chat.id]
 
-                found = cleaned_db[matches[0]]
+            while True:
 
-        # =========================================
-        # SEND ANIME
-        # =========================================
+                data = batch_data.get(message.chat.id)
 
-        if found:
+                if not data:
+                    return
 
-            episodes = anime_db[found]
+                if data["stopped"]:
+                    return
 
-            status = await message.reply_text(
+                if data["index"] >= len(data["episodes"]):
 
-                f"🔥 {found.title()} mil gaya!\n"
-                f"📦 Sending Episodes..."
+                    await message.reply_text(
+                        "✅ Batch completed."
+                    )
 
-            )
+                    del batch_data[message.chat.id]
 
-            sent = 0
+                    return
 
-            for ep in episodes:
+                ep = data["episodes"][data["index"]]
 
                 try:
 
                     await client.copy_message(
-
                         chat_id=message.chat.id,
-
                         from_chat_id=ep["chat_id"],
-
                         message_id=ep["message_id"]
-
                     )
-
-                    sent += 1
-
-                    await asyncio.sleep(0.5)
 
                 except:
                     pass
 
-            await status.edit_text(
+                data["index"] += 1
 
-                f"✅ Done\n\n"
-                f"📦 Sent: {sent}"
-
-            )
+                await asyncio.sleep(0.7)
 
             return
 
@@ -432,23 +548,12 @@ async def main_system(client, message):
         # =========================================
 
         await client.send_chat_action(
-
             message.chat.id,
             ChatAction.TYPING
-
         )
 
         wait = await message.reply_text(
-
-            random.choice([
-
-                "🌸 Thinking...",
-                "💭 Hmm...",
-                "✨ Cooking reply...",
-                "💕 Typing..."
-
-            ])
-
+            random.choice(thinking_lines)
         )
 
         reply = ask_ai(
@@ -462,18 +567,20 @@ async def main_system(client, message):
 
     except Exception as e:
 
+        print(e)
+
         traceback.print_exc()
 
         await message.reply_text(
-
             "❌ Error aa gaya..."
-
         )
 
 # =========================================
 # RUN
 # =========================================
 
-print("🌸 Rei Ultra AI Running...")
+if __name__ == "__main__":
 
-app.run()
+    print("🌸 Rei Ultra AI Running...")
+
+    app.run()
