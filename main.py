@@ -12,7 +12,8 @@ import random
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatAction
-from openai import AsyncOpenAI
+
+import google.generativeai as genai
 
 # =========================================
 # VARIABLES
@@ -21,19 +22,24 @@ from openai import AsyncOpenAI
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 DB_FILE = "anime_list.json"
 
 # YOUR CHANNEL ID
-CHANNEL_ID = --1002140125432
+CHANNEL_ID = -1002140125432
 
 # =========================================
-# OPENAI
+# GEMINI AI
 # =========================================
 
-ai = AsyncOpenAI(
-    api_key=OPENAI_API_KEY
+genai.configure(
+    api_key=GEMINI_API_KEY
+)
+
+model = genai.GenerativeModel(
+    "gemini-1.5-flash"
 )
 
 # =========================================
@@ -83,7 +89,9 @@ thinking_lines = [
     "✨ Cooking reply...",
     "😎 Rei thinking...",
     "💭 One sec...",
-    "🤖 Processing..."
+    "🤖 Processing...",
+    "💕 Typing...",
+    "⚡ Brain loading..."
 ]
 
 # =========================================
@@ -150,6 +158,7 @@ Ultra AI Anime Assistant ✨
 😂 Funny Replies
 😭 Emotional Support
 🎮 Anime Recommendations
+🔥 Smart Anime Detection
 
 ━━━━━━━━━━━━━━━
 
@@ -157,6 +166,7 @@ Examples:
 • Naruto
 • Solo Leveling
 • hello rei
+• best anime
 • mood off
 """
 
@@ -207,7 +217,7 @@ async def auto_index(client, message):
 
         save_db()
 
-        print(f"Saved: {anime_name}")
+        print(f"✅ Saved: {anime_name}")
 
     except Exception as e:
 
@@ -366,6 +376,7 @@ async def main_system(client, message):
             "content": user_text
         })
 
+        # LIMIT MEMORY
         chat_memory[user_id] = chat_memory[user_id][-20:]
 
         await client.send_chat_action(
@@ -377,15 +388,11 @@ async def main_system(client, message):
             random.choice(thinking_lines)
         )
 
-        response = await ai.chat.completions.create(
+        # =========================================
+        # PROMPT
+        # =========================================
 
-            model="gpt-3.5-turbo",
-
-            messages=[
-
-                {
-                    "role": "system",
-                    "content": """
+        prompt = f"""
 
 You are Rei 🌸
 
@@ -408,6 +415,9 @@ You know:
 - Dragon Ball
 - Jujutsu Kaisen
 - Demon Slayer
+- Attack On Titan
+- Tokyo Ghoul
+- Bleach
 - All popular anime
 
 You also know:
@@ -426,20 +436,23 @@ Speaking style:
 
 Never sound robotic.
 
+Conversation:
+{chat_memory[user_id]}
+
+User:
+{user_text}
+
 """
-                },
 
-                *chat_memory[user_id]
+        # =========================================
+        # GEMINI RESPONSE
+        # =========================================
 
-            ],
+        response = model.generate_content(prompt)
 
-            temperature=1.0,
-            max_tokens=500
+        reply = response.text
 
-        )
-
-        reply = response.choices[0].message.content
-
+        # SAVE MEMORY
         chat_memory[user_id].append({
             "role": "assistant",
             "content": reply
