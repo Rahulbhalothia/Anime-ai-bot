@@ -4,4 +4,4 @@ requests
 opencv-python-headless
 numpy
 pillow
-openai
+google-generativeai
