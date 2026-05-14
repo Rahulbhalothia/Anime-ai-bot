@@ -19,7 +19,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "8143241425:AAGr39PkhCR67jY8aIrsyMgFOxD2VWk9w
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_KEY_HERE")
 
 # 👑 ADMIN & CHANNEL (Must Change This)
-ADMIN_ID = 123456789  # <--- Apni numeric ID dalo
+ADMIN_ID = 6270115110  # <--- Apni numeric ID dalo
 CHANNEL_ID = -1002140125432 # <--- Apne channel ki ID
 
 # =========================================
