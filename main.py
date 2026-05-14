@@ -21,10 +21,10 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# OPENROUTER API
+# OPENROUTER API KEY
 OPENROUTER_API_KEY = os.getenv("REI_API_KEY")
 
-# CHANNEL ID
+# YOUR CHANNEL ID
 CHANNEL_ID = -1002140125432
 
 DB_FILE = "anime_db.json"
@@ -274,7 +274,7 @@ Keep replies stylish and short.
 
             json={
 
-                "model": "mistralai/mistral-7b-instruct:free",
+                "model": "deepseek/deepseek-chat:free",
 
                 "messages": messages
 
