@@ -1,36 +1,31 @@
-# =========================================
-# 🌸 REI ULTRA AI ANIME BOT
-# =========================================
-
 import os
 import re
 import json
-import asyncio
-import traceback
 import difflib
+import traceback
+import asyncio
+import random
 import requests
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatAction
 
 # =========================================
-# 🔥 VARIABLES
+# VARIABLES
 # =========================================
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# OPENROUTER API KEY
-OPENROUTER_API_KEY = os.getenv("REI_API_KEY")
-
-# YOUR CHANNEL ID
-CHANNEL_ID = -1002140125432
+REI_API_KEY = os.getenv("REI_API_KEY")
 
 DB_FILE = "anime_db.json"
 
+CHANNEL_ID = -1002140125432
+
 # =========================================
-# 🤖 BOT
+# BOT
 # =========================================
 
 app = Client(
@@ -41,7 +36,7 @@ app = Client(
 )
 
 # =========================================
-# 💾 DATABASE
+# LOAD DATABASE
 # =========================================
 
 if os.path.exists(DB_FILE):
@@ -61,13 +56,13 @@ if isinstance(anime_db, list):
     anime_db = {}
 
 # =========================================
-# 🧠 MEMORY
+# MEMORY
 # =========================================
 
 chat_memory = {}
 
 # =========================================
-# 💬 THINKING LINES
+# THINKING LINES
 # =========================================
 
 thinking_lines = [
@@ -80,22 +75,21 @@ thinking_lines = [
 ]
 
 # =========================================
-# 💾 SAVE DATABASE
+# SAVE DB
 # =========================================
 
 def save_db():
 
     with open(DB_FILE, "w", encoding="utf-8") as f:
-
         json.dump(anime_db, f, indent=4)
 
 # =========================================
-# 🧹 CLEAN NAME
+# CLEAN NAME
 # =========================================
 
-def clean_name(text):
+def clean_name(name):
 
-    text = str(text).lower()
+    name = str(name).lower()
 
     remove_words = [
         "1080p",
@@ -116,22 +110,101 @@ def clean_name(text):
     ]
 
     for word in remove_words:
-        text = text.replace(word, " ")
+        name = name.replace(word, " ")
 
-    text = re.sub(r"[^a-zA-Z0-9 ]", "", text)
-    text = re.sub(r"\s+", " ", text)
+    name = re.sub(r"[^a-zA-Z0-9 ]", "", name)
+    name = re.sub(r"\s+", " ", name)
 
-    return text.strip()
+    return name.strip()
 
 # =========================================
-# 🚀 START
+# OPENROUTER AI
+# =========================================
+
+def ask_ai(user_id, user_text):
+
+    if user_id not in chat_memory:
+        chat_memory[user_id] = []
+
+    chat_memory[user_id].append({
+        "role": "user",
+        "content": user_text
+    })
+
+    chat_memory[user_id] = chat_memory[user_id][-10:]
+
+    messages = [
+
+        {
+            "role": "system",
+            "content": """
+
+You are Rei 🌸
+
+You are:
+- cute
+- funny
+- emotional
+- anime girl
+- human-like
+- smart
+
+You love anime.
+
+Reply in stylish Hinglish.
+
+Keep replies short and natural.
+
+Never sound robotic.
+
+"""
+        }
+
+    ]
+
+    messages.extend(chat_memory[user_id])
+
+    response = requests.post(
+
+        url="https://openrouter.ai/api/v1/chat/completions",
+
+        headers={
+
+            "Authorization": f"Bearer {REI_API_KEY}",
+            "Content-Type": "application/json"
+
+        },
+
+        json={
+
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
+
+            "messages": messages
+
+        }
+
+    )
+
+    data = response.json()
+
+    reply = data["choices"][0]["message"]["content"]
+
+    chat_memory[user_id].append({
+        "role": "assistant",
+        "content": reply
+    })
+
+    return reply
+
+# =========================================
+# START
 # =========================================
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
 
-    txt = f"""
-🌸 Hey {message.from_user.first_name} ~
+    text = f"""
+🌸 Hey {message.from_user.first_name}~
 
 I'm Rei 😎
 
@@ -139,14 +212,14 @@ I'm Rei 😎
 
 🎬 Anime Search
 🤖 Smart AI Chat
-💻 Coding Help
 😂 Funny Replies
-🎮 Anime Recommendations
 💕 Emotional Support
+🎮 Anime Recommendations
 
 ━━━━━━━━━━━━━━━
 
 Examples:
+
 • Naruto
 • Dragon Ball
 • Solo Leveling
@@ -154,17 +227,17 @@ Examples:
 • mood off
 """
 
-    await message.reply_text(txt)
+    await message.reply_text(text)
 
 # =========================================
-# 📥 AUTO SAVE ANIME
+# AUTO INDEX
 # =========================================
 
 @app.on_message(
     filters.chat(CHANNEL_ID)
     & (filters.video | filters.document)
 )
-async def auto_save(client, message):
+async def auto_index(client, message):
 
     try:
 
@@ -197,121 +270,19 @@ async def auto_save(client, message):
 
         save_db()
 
-        print(f"✅ Saved: {anime_name}")
+        print(f"Saved: {anime_name}")
 
     except Exception as e:
 
         print(e)
 
 # =========================================
-# 🤖 AI CHAT FUNCTION
-# =========================================
-
-def get_ai_reply(user_id, user_text):
-
-    try:
-
-        if user_id not in chat_memory:
-            chat_memory[user_id] = []
-
-        chat_memory[user_id].append({
-
-            "role": "user",
-            "content": user_text
-
-        })
-
-        chat_memory[user_id] = chat_memory[user_id][-10:]
-
-        messages = [
-
-            {
-                "role": "system",
-                "content": """
-
-You are Rei 🌸
-
-You are:
-- cute
-- funny
-- emotional
-- smart
-- anime lover
-- human-like
-
-Reply in natural Hinglish.
-
-You love:
-- Naruto
-- One Piece
-- Dragon Ball
-- Solo Leveling
-- Anime
-- Gaming
-- Coding
-- Memes
-
-Never sound robotic.
-Keep replies stylish and short.
-
-"""
-            }
-
-        ]
-
-        messages.extend(chat_memory[user_id])
-
-        response = requests.post(
-
-            "https://openrouter.ai/api/v1/chat/completions",
-
-            headers={
-
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
-
-            },
-
-            json={
-
-                "model": "deepseek/deepseek-chat:free",
-
-                "messages": messages
-
-            },
-
-            timeout=60
-
-        )
-
-        data = response.json()
-
-        print(data)
-
-        reply = data["choices"][0]["message"]["content"]
-
-        chat_memory[user_id].append({
-
-            "role": "assistant",
-            "content": reply
-
-        })
-
-        return reply
-
-    except Exception as e:
-
-        print(e)
-
-        return "🌸 Rei ka brain lag ho gaya 😭"
-
-# =========================================
-# 🎬 MAIN SYSTEM
+# MAIN SYSTEM
 # =========================================
 
 @app.on_message(
-    filters.private
-    & filters.text
+    filters.text
+    & filters.private
     & ~filters.bot
     & ~filters.command(["start"])
 )
@@ -319,26 +290,27 @@ async def main_system(client, message):
 
     try:
 
-        text = message.text.strip()
+        user_text = message.text.strip()
 
-        if not text:
+        if not user_text:
             return
 
-        query = clean_name(text)
+        user_id = str(message.from_user.id)
+
+        query = clean_name(user_text)
 
         found = None
 
-        # EXACT SEARCH
+        # exact match
         for anime in anime_db:
 
             db_name = clean_name(anime)
 
             if query == db_name:
-
                 found = anime
                 break
 
-        # PARTIAL SEARCH
+        # partial match
         if not found:
 
             for anime in anime_db:
@@ -346,31 +318,25 @@ async def main_system(client, message):
                 db_name = clean_name(anime)
 
                 if query in db_name or db_name in query:
-
                     found = anime
                     break
 
-        # FUZZY SEARCH
+        # fuzzy match
         if not found:
 
             cleaned_db = {
-
-                clean_name(k): k
+                clean_name(str(k)): k
                 for k in anime_db
-
             }
 
             matches = difflib.get_close_matches(
-
                 query,
                 cleaned_db.keys(),
                 n=1,
                 cutoff=0.3
-
             )
 
             if matches:
-
                 found = cleaned_db[matches[0]]
 
         # =========================================
@@ -379,31 +345,41 @@ async def main_system(client, message):
 
         if found:
 
-            episodes = anime_db[found]
+            ids = anime_db[found]
 
-            await message.reply_text(
-
-                f"🔥 {found.title()} mil gaya!\n"
-                f"📦 Sending Episodes..."
-
+            await client.send_chat_action(
+                message.chat.id,
+                ChatAction.TYPING
             )
 
-            for ep in episodes:
+            status = await message.reply_text(
+                f"🔥 {found.title()} mil gaya!\n"
+                f"📦 Sending Episodes..."
+            )
+
+            success = 0
+
+            for item in ids:
 
                 try:
 
                     await client.copy_message(
-
                         chat_id=message.chat.id,
-                        from_chat_id=ep["chat_id"],
-                        message_id=ep["message_id"]
-
+                        from_chat_id=item["chat_id"],
+                        message_id=item["message_id"]
                     )
+
+                    success += 1
 
                     await asyncio.sleep(0.5)
 
                 except:
                     pass
+
+            await status.edit_text(
+                f"✅ Done\n\n"
+                f"📦 Sent: {success}"
+            )
 
             return
 
@@ -412,41 +388,34 @@ async def main_system(client, message):
         # =========================================
 
         await client.send_chat_action(
-
             message.chat.id,
             ChatAction.TYPING
-
         )
 
         wait = await message.reply_text(
-
-            thinking_lines[0]
-
+            random.choice(thinking_lines)
         )
 
-        reply = get_ai_reply(
-
-            str(message.from_user.id),
-            text
-
-        )
+        reply = ask_ai(user_id, user_text)
 
         await wait.edit_text(reply)
 
     except Exception as e:
 
+        print(e)
+
         traceback.print_exc()
 
         await message.reply_text(
-
             "❌ Error aa gaya..."
-
         )
 
 # =========================================
-# ▶️ RUN
+# RUN
 # =========================================
 
-print("🌸 Rei Ultra AI Running...")
+if __name__ == "__main__":
 
-app.run()
+    print("🌸 Rei Ultra AI Running...")
+
+    app.run()
