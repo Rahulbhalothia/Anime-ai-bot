@@ -17,10 +17,10 @@ from pyrogram.enums import ChatAction
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-CHANNEL_ID = -1002140125432
+# YOUR TELEGRAM USER ID
+ADMIN_ID = 6270115110
 
 DB_FILE = "anime_db.json"
 
@@ -50,6 +50,7 @@ if os.path.exists(DB_FILE):
             anime_db = {}
 
 else:
+
     anime_db = {}
 
 if isinstance(anime_db, list):
@@ -66,38 +67,12 @@ def save_db():
         json.dump(anime_db, f, indent=4)
 
 # =========================================
-# MEMORY
-# =========================================
-
-chat_memory = {}
-
-# =========================================
-# BATCH DATA
-# =========================================
-
-batch_data = {}
-
-# =========================================
-# THINKING
-# =========================================
-
-thinking_lines = [
-
-    "🌸 Thinking...",
-    "✨ Cooking reply...",
-    "😎 Rei thinking...",
-    "💭 One sec...",
-    "💕 Typing..."
-
-]
-
-# =========================================
 # CLEAN NAME
 # =========================================
 
-def clean_name(name):
+def clean_name(text):
 
-    name = str(name).lower()
+    text = str(text).lower()
 
     remove_words = [
 
@@ -121,13 +96,45 @@ def clean_name(name):
 
     for word in remove_words:
 
-        name = name.replace(word, " ")
+        text = text.replace(word, " ")
 
-    name = re.sub(r"[^a-zA-Z0-9 ]", "", name)
+    text = re.sub(r"[^a-zA-Z0-9 ]", "", text)
 
-    name = re.sub(r"\s+", " ", name)
+    text = re.sub(r"\s+", " ", text)
 
-    return name.strip()
+    return text.strip()
+
+# =========================================
+# MEMORY
+# =========================================
+
+chat_memory = {}
+
+# =========================================
+# SAVE MODE
+# =========================================
+
+save_mode = {}
+
+# =========================================
+# SEND MODE
+# =========================================
+
+send_mode = {}
+
+# =========================================
+# THINKING
+# =========================================
+
+thinking_lines = [
+
+    "🌸 Thinking...",
+    "✨ Cooking reply...",
+    "😎 Rei thinking...",
+    "💭 One sec...",
+    "💕 Typing..."
+
+]
 
 # =========================================
 # AI CHAT
@@ -160,8 +167,8 @@ You are Rei 🌸
 
 You are:
 - cute
-- emotional
 - funny
+- emotional
 - smart
 - anime girl
 - human-like
@@ -245,85 +252,182 @@ async def start(client, message):
 
     text = f"""
 
-🌸 Hey {message.from_user.first_name}~
+🌸 Hey {message.from_user.first_name} ~
 
 I'm Rei 😎
+Ultra Smart Anime AI
 
 ━━━━━━━━━━━━━━━
 
-🎬 Anime Search
-🤖 Smart AI Chat
+🤖 AI Chat
+🎬 Anime Sending
 💕 Emotional Support
 🎮 Anime Recommendations
 💻 Coding Help
 
 ━━━━━━━━━━━━━━━
 
-Examples:
+📦 USER COMMANDS
 
+🎬 /send anime_name
+→ Anime episodes bhejega
+
+🛑 /stop
+→ Anime sending pause karega
+
+▶ /continue
+→ Anime wahi se continue karega
+
+━━━━━━━━━━━━━━━
+
+📥 ADMIN COMMANDS
+
+📦 /batch anime_name
+→ Saving mode ON
+
+🛑 /stopbatch
+→ Saving mode OFF
+
+━━━━━━━━━━━━━━━
+
+✨ Examples:
+
+• /send Naruto
 • hello rei
 • mood off
-• best anime
-• /batch Naruto
 
 """
 
     await message.reply_text(text)
 
 # =========================================
-# AUTO SAVE ANIME
-# =========================================
-
-@app.on_message(
-    filters.chat(CHANNEL_ID)
-    & (filters.video | filters.document)
-)
-async def auto_save(client, message):
-
-    try:
-
-        file_name = ""
-
-        if message.video:
-            file_name = message.video.file_name or ""
-
-        elif message.document:
-            file_name = message.document.file_name or ""
-
-        caption = message.caption or ""
-
-        combined = f"{file_name} {caption}"
-
-        anime_name = clean_name(combined)
-
-        if len(anime_name) < 2:
-            return
-
-        if anime_name not in anime_db:
-
-            anime_db[anime_name] = []
-
-        anime_db[anime_name].append({
-
-            "message_id": message.id,
-            "chat_id": message.chat.id
-
-        })
-
-        save_db()
-
-        print(f"✅ Saved: {anime_name}")
-
-    except Exception as e:
-
-        print(e)
-
-# =========================================
-# BATCH COMMAND
+# BATCH START
 # =========================================
 
 @app.on_message(filters.command("batch"))
-async def batch_send(client, message):
+async def batch_start(client, message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+
+        anime_name = message.text.split(None, 1)[1]
+
+    except:
+
+        return await message.reply_text(
+            "❌ Usage:\n/batch Naruto"
+        )
+
+    anime_name = clean_name(anime_name)
+
+    save_mode[message.chat.id] = anime_name
+
+    if anime_name not in anime_db:
+
+        anime_db[anime_name] = []
+
+    await message.reply_text(
+
+        f"""
+🔥 Saving Mode ON
+
+🎬 Anime:
+{anime_name.title()}
+
+📥 Ab episodes/videos forward karo.
+
+🛑 Stop:
+ /stopbatch
+"""
+
+    )
+
+# =========================================
+# STOP BATCH
+# =========================================
+
+@app.on_message(filters.command("stopbatch"))
+async def stop_batch(client, message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    if message.chat.id not in save_mode:
+
+        return await message.reply_text(
+            "❌ No active batch."
+        )
+
+    anime = save_mode[message.chat.id]
+
+    del save_mode[message.chat.id]
+
+    save_db()
+
+    await message.reply_text(
+
+        f"""
+✅ Saving Mode OFF
+
+🎬 Anime:
+{anime.title()}
+
+📦 Anime saved successfully.
+"""
+
+    )
+
+# =========================================
+# SAVE FORWARDED EPISODES
+# =========================================
+
+@app.on_message(
+    filters.private
+    & (filters.video | filters.document)
+)
+async def save_episodes(client, message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    if message.chat.id not in save_mode:
+        return
+
+    anime_name = save_mode[message.chat.id]
+
+    anime_db[anime_name].append({
+
+        "message_id": message.id,
+        "chat_id": message.chat.id
+
+    })
+
+    save_db()
+
+    total = len(anime_db[anime_name])
+
+    await message.reply_text(
+
+        f"""
+✅ Episode Saved
+
+🎬 Anime:
+{anime_name.title()}
+
+📦 Total Episodes:
+{total}
+"""
+
+    )
+
+# =========================================
+# SEND ANIME
+# =========================================
+
+@app.on_message(filters.command("send"))
+async def send_anime(client, message):
 
     try:
 
@@ -332,13 +436,14 @@ async def batch_send(client, message):
     except:
 
         return await message.reply_text(
-            "Usage:\n/batch Naruto"
+            "❌ Usage:\n/send Naruto"
         )
 
     query = clean_name(query)
 
     found = None
 
+    # EXACT + PARTIAL
     for anime in anime_db:
 
         db_name = clean_name(anime)
@@ -348,18 +453,23 @@ async def batch_send(client, message):
             found = anime
             break
 
+    # FUZZY
     if not found:
 
         cleaned_db = {
+
             clean_name(k): k
             for k in anime_db.keys()
+
         }
 
         matches = difflib.get_close_matches(
+
             query,
             cleaned_db.keys(),
             n=1,
             cutoff=0.3
+
         )
 
         if matches:
@@ -374,7 +484,7 @@ async def batch_send(client, message):
 
     episodes = anime_db[found]
 
-    batch_data[message.chat.id] = {
+    send_mode[message.chat.id] = {
 
         "anime": found,
         "episodes": episodes,
@@ -384,12 +494,19 @@ async def batch_send(client, message):
     }
 
     status = await message.reply_text(
-        f"📦 Sending {found.title()}..."
+
+        f"""
+🔥 Sending Anime
+
+🎬 {found.title()}
+📦 Episodes: {len(episodes)}
+"""
+
     )
 
     while True:
 
-        data = batch_data.get(message.chat.id)
+        data = send_mode.get(message.chat.id)
 
         if not data:
             return
@@ -397,7 +514,7 @@ async def batch_send(client, message):
         if data["stopped"]:
 
             await status.edit_text(
-                "🛑 Batch paused."
+                "🛑 Anime paused."
             )
 
             return
@@ -405,10 +522,10 @@ async def batch_send(client, message):
         if data["index"] >= len(data["episodes"]):
 
             await status.edit_text(
-                "✅ Batch completed."
+                "✅ Anime completed."
             )
 
-            del batch_data[message.chat.id]
+            del send_mode[message.chat.id]
 
             return
 
@@ -437,7 +554,14 @@ async def batch_send(client, message):
     filters.private
     & filters.text
     & ~filters.bot
-    & ~filters.command(["start", "batch"])
+    & ~filters.command([
+
+        "start",
+        "batch",
+        "stopbatch",
+        "send"
+
+    ])
 )
 async def main_chat(client, message):
 
@@ -448,65 +572,63 @@ async def main_chat(client, message):
         if not user_text:
             return
 
-        text_lower = user_text.lower()
+        lower = user_text.lower()
 
         # =========================================
-        # SMART STOP
+        # STOP SEND
         # =========================================
 
-        if text_lower in [
+        if lower in [
 
             "stop",
+            "/stop",
             "pause",
-            "ruk",
-            "band"
+            "ruk"
 
         ]:
 
-            if message.chat.id in batch_data:
+            if message.chat.id in send_mode:
 
-                batch_data[message.chat.id]["stopped"] = True
+                send_mode[message.chat.id]["stopped"] = True
 
                 return await message.reply_text(
-                    "🛑 Okay, batch paused."
+                    "🛑 Anime paused."
                 )
 
         # =========================================
-        # SMART CONTINUE
+        # CONTINUE SEND
         # =========================================
 
-        if text_lower in [
+        if lower in [
 
             "continue",
+            "/continue",
             "resume",
-            "start again",
-            "chalu"
+            "start again"
 
         ]:
 
-            if message.chat.id not in batch_data:
+            if message.chat.id not in send_mode:
 
                 return await message.reply_text(
-                    "❌ No paused batch."
+                    "❌ No paused anime."
                 )
 
-            if not batch_data[message.chat.id]["stopped"]:
+            if not send_mode[message.chat.id]["stopped"]:
 
                 return await message.reply_text(
                     "⚡ Already running."
                 )
 
-            batch_data[message.chat.id]["stopped"] = False
+            send_mode[message.chat.id]["stopped"] = False
 
             await message.reply_text(
-                "▶ Continuing batch..."
+                "▶ Continuing anime..."
             )
-
-            data = batch_data[message.chat.id]
 
             while True:
 
-                data = batch_data.get(message.chat.id)
+                data = send_mode.get(message.chat.id)
 
                 if not data:
                     return
@@ -517,10 +639,10 @@ async def main_chat(client, message):
                 if data["index"] >= len(data["episodes"]):
 
                     await message.reply_text(
-                        "✅ Batch completed."
+                        "✅ Anime completed."
                     )
 
-                    del batch_data[message.chat.id]
+                    del send_mode[message.chat.id]
 
                     return
 
