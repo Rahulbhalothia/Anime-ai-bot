@@ -1,5 +1,5 @@
 # =========================================
-# 🌸 REI ULTRA PRO MAX AI ANIME BOT
+# 🌸 REI ULTRA AI ANIME CHAT BOT
 # =========================================
 
 import os
@@ -25,6 +25,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 DB_FILE = "anime_list.json"
 
+# YOUR CHANNEL ID
+CHANNEL_ID = --1002140125432
+
 # =========================================
 # OPENAI
 # =========================================
@@ -38,22 +41,31 @@ ai = AsyncOpenAI(
 # =========================================
 
 app = Client(
-    "rei_ultra_pro_max",
+    "rei_ultra_ai",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN
 )
 
 # =========================================
-# DATABASE
+# LOAD DATABASE
 # =========================================
 
 if os.path.exists(DB_FILE):
 
     with open(DB_FILE, "r", encoding="utf-8") as f:
-        anime_db = json.load(f)
+
+        try:
+            anime_db = json.load(f)
+
+        except:
+            anime_db = {}
 
 else:
+    anime_db = {}
+
+# FIX DATABASE
+if isinstance(anime_db, list):
     anime_db = {}
 
 # =========================================
@@ -63,16 +75,25 @@ else:
 chat_memory = {}
 
 # =========================================
-# RANDOM STATUS
+# RANDOM THINKING
 # =========================================
 
 thinking_lines = [
     "🌸 Thinking...",
-    "✨ Cooking a reply...",
-    "😎 Rei is thinking...",
+    "✨ Cooking reply...",
+    "😎 Rei thinking...",
     "💭 One sec...",
     "🤖 Processing..."
 ]
+
+# =========================================
+# SAVE DB
+# =========================================
+
+def save_db():
+
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(anime_db, f, indent=4)
 
 # =========================================
 # CLEAN NAME
@@ -116,91 +137,81 @@ def clean_name(name):
 async def start(client, message):
 
     text = f"""
-🌸 Hey {message.from_user.first_name}~ ✨
+🌸 Hey {message.from_user.first_name}~
 
 I'm Rei 😎
-Your Ultra Pro Max AI Anime Assistant 💕
+Ultra AI Anime Assistant ✨
 
 ━━━━━━━━━━━━━━━
 
-💬 I can:
-🎬 Send anime episodes
-🤖 Talk like AI
-💖 Chat like a real friend
-🎮 Anime recommendations
-💻 Coding help
-📚 Study help
-😂 Fun conversations
-😭 Emotional support
+🎬 Anime Search
+🤖 AI Chat
+💻 Coding Help
+😂 Funny Replies
+😭 Emotional Support
+🎮 Anime Recommendations
 
 ━━━━━━━━━━━━━━━
-
-✨ Just type naturally~
 
 Examples:
-• Solo Leveling
-• hello rei
-• best anime
-• mood off
-"""
-
-    await message.reply_text(text)
-
-# =========================================
-# HELP
-# =========================================
-
-@app.on_message(filters.command("help"))
-async def help_command(client, message):
-
-    text = """
-🌸 REI HELP ✨
-
-━━━━━━━━━━━━━━━
-
-🎬 Anime:
 • Naruto
 • Solo Leveling
-• One Piece
-
-━━━━━━━━━━━━━━━
-
-💬 AI Chat:
-• hello
-• talk to me
+• hello rei
 • mood off
-
-━━━━━━━━━━━━━━━
-
-💻 Coding:
-• python help
-• fix error
-
-━━━━━━━━━━━━━━━
-
-⚡ Commands:
-/start
-/help
-/reset
 """
 
     await message.reply_text(text)
 
 # =========================================
-# RESET
+# AUTO CHANNEL INDEX
 # =========================================
 
-@app.on_message(filters.command("reset"))
-async def reset_memory(client, message):
+@app.on_message(
+    filters.chat(CHANNEL_ID)
+    & (filters.video | filters.document)
+)
+async def auto_index(client, message):
 
-    user_id = str(message.from_user.id)
+    try:
 
-    if user_id in chat_memory:
-        del chat_memory[user_id]
+        file_name = ""
 
-    await message.reply_text(
-        "🧹 Memory cleared~"
-    )
+        # VIDEO
+        if message.video:
+            file_name = message.video.file_name or ""
+
+        # DOCUMENT
+        elif message.document:
+            file_name = message.document.file_name or ""
+
+        # CAPTION
+        caption = message.caption or ""
+
+        # COMBINE
+        combined = f"{file_name} {caption}"
+
+        anime_name = clean_name(combined)
+
+        if len(anime_name) < 2:
+            return
+
+        if anime_name not in anime_db:
+            anime_db[anime_name] = []
+
+        anime_db[anime_name].append({
+
+            "message_id": message.id,
+            "chat_id": message.chat.id
+
+        })
+
+        save_db()
+
+        print(f"Saved: {anime_name}")
+
+    except Exception as e:
+
+        print(e)
 
 # =========================================
 # MAIN SYSTEM
@@ -210,11 +221,7 @@ async def reset_memory(client, message):
     filters.text
     & filters.private
     & ~filters.bot
-    & ~filters.command([
-        "start",
-        "help",
-        "reset"
-    ])
+    & ~filters.command(["start"])
 )
 async def main_system(client, message):
 
@@ -259,8 +266,8 @@ async def main_system(client, message):
         if not found:
 
             cleaned_db = {
-                clean_name(k): k
-                for k in anime_db.keys()
+                clean_name(str(k)): k
+                for k in anime_db
             }
 
             matches = difflib.get_close_matches(
@@ -348,7 +355,7 @@ async def main_system(client, message):
             return
 
         # =========================================
-        # AI CHAT SYSTEM
+        # AI CHAT
         # =========================================
 
         if user_id not in chat_memory:
@@ -359,7 +366,6 @@ async def main_system(client, message):
             "content": user_text
         })
 
-        # limit memory
         chat_memory[user_id] = chat_memory[user_id][-20:]
 
         await client.send_chat_action(
@@ -371,13 +377,9 @@ async def main_system(client, message):
             random.choice(thinking_lines)
         )
 
-        # =========================================
-        # AI RESPONSE
-        # =========================================
-
         response = await ai.chat.completions.create(
 
-            model="gpt-4.1-mini",
+            model="gpt-3.5-turbo",
 
             messages=[
 
@@ -389,13 +391,12 @@ You are Rei 🌸
 
 You are an ultra smart anime AI assistant.
 
-You behave like:
-- Real human
-- Friendly online friend
+You are:
+- Friendly
 - Funny
 - Emotional
-- Calm
-- Cute
+- Human-like
+- Casual
 - Smart
 
 You LOVE anime deeply.
@@ -403,40 +404,27 @@ You LOVE anime deeply.
 You know:
 - Naruto
 - One Piece
-- Dragon Ball
-- Bleach
 - Solo Leveling
+- Dragon Ball
 - Jujutsu Kaisen
 - Demon Slayer
-- Attack on Titan
-- Tokyo Ghoul
-- Chainsaw Man
-- All major anime
+- All popular anime
 
 You also know:
 - coding
-- python
 - gaming
-- studies
 - memes
-- technology
+- studies
+- life
 
-Your speaking style:
-- Human-like
-- Casual
-- Natural
-- Stylish
-- Use emojis naturally
-- Never robotic
-- Never dry
-- Keep replies medium size
+Speaking style:
+- natural
+- human-like
+- casual
+- stylish
+- use emojis naturally
 
-Behavior:
-- understand emotions
-- react naturally
-- don't spam emojis
-- don't repeat phrases
-- feel like a real person
+Never sound robotic.
 
 """
                 },
@@ -452,13 +440,11 @@ Behavior:
 
         reply = response.choices[0].message.content
 
-        # save memory
         chat_memory[user_id].append({
             "role": "assistant",
             "content": reply
         })
 
-        # send
         await wait.edit_text(reply)
 
     except Exception as e:
@@ -477,6 +463,6 @@ Behavior:
 
 if __name__ == "__main__":
 
-    print("🌸 Rei Ultra Pro Max AI Running...")
+    print("🌸 Rei Ultra AI Running...")
 
     app.run()
