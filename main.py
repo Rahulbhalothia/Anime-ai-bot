@@ -7,13 +7,13 @@ import asyncio
 import random
 import requests
 
-import requests
-
+from pymongo import MongoClient
 from dotenv import load_dotenv
 load_dotenv()
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatAction
+
 # =========================================
 # VARIABLES
 # =========================================
@@ -22,11 +22,14 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MONGO_URI = os.getenv("MONGO_URI")
+
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client["anime_bot"]
+anime_collection = db["anime"]
 
 # YOUR TELEGRAM USER ID
 ADMIN_ID = 6270115110
-
-DB_FILE = "anime_db.json"
 
 # =========================================
 # BOT
@@ -43,21 +46,13 @@ app = Client(
 # LOAD DATABASE
 # =========================================
 
-if os.path.exists(DB_FILE):
+anime_db = {}
 
-    with open(DB_FILE, "r", encoding="utf-8") as f:
-
-        try:
-            anime_db = json.load(f)
-
-        except:
-            anime_db = {}
-
-else:
-
-    anime_db = {}
-
-if isinstance(anime_db, list):
+try:
+    for anime in anime_collection.find():
+        anime_db[anime["name"]] = anime["episodes"]
+except Exception as e:
+    print("Mongo Load Error:", e)
     anime_db = {}
 
 # =========================================
@@ -65,10 +60,15 @@ if isinstance(anime_db, list):
 # =========================================
 
 def save_db():
-
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-
-        json.dump(anime_db, f, indent=4)
+    try:
+        anime_collection.delete_many({})
+        for anime_name, episodes in anime_db.items():
+            anime_collection.insert_one({
+                "name": anime_name,
+                "episodes": episodes
+            })
+    except Exception as e:
+        print("Mongo Save Error:", e)
 
 # =========================================
 # CLEAN NAME
@@ -79,31 +79,16 @@ def clean_name(text):
     text = str(text).lower()
 
     remove_words = [
-
-        "1080p",
-        "720p",
-        "480p",
-        "360p",
-        "x264",
-        "aac",
-        "mkv",
-        "mp4",
-        "dual",
-        "audio",
-        "bluray",
-        "webrip",
-        "episode",
-        "ep",
-        "season"
-
+        "1080p", "720p", "480p", "360p",
+        "x264", "aac", "mkv", "mp4", "dual",
+        "audio", "bluray", "webrip", "episode",
+        "ep", "season"
     ]
 
     for word in remove_words:
-
         text = text.replace(word, " ")
 
     text = re.sub(r"[^a-zA-Z0-9 ]", "", text)
-
     text = re.sub(r"\s+", " ", text)
 
     return text.strip()
@@ -131,13 +116,11 @@ send_mode = {}
 # =========================================
 
 thinking_lines = [
-
     "🌸 Thinking...",
     "✨ Cooking reply...",
     "😎 Rei thinking...",
     "💭 One sec...",
     "💕 Typing..."
-
 ]
 
 # =========================================
@@ -149,20 +132,16 @@ def ask_ai(user_id, user_text):
     try:
 
         if user_id not in chat_memory:
-
             chat_memory[user_id] = []
 
         chat_memory[user_id].append({
-
             "role": "user",
             "content": user_text
-
         })
 
         chat_memory[user_id] = chat_memory[user_id][-10:]
 
         messages = [
-
             {
                 "role": "system",
                 "content": """
@@ -192,59 +171,41 @@ Keep replies stylish and medium size.
 
 """
             }
-
         ]
 
         messages.extend(chat_memory[user_id])
 
         response = requests.post(
-
             "https://api.groq.com/openai/v1/chat/completions",
-
             headers={
-
                 "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json"
-
             },
-
             json={
-
                 "model": "llama-3.3-70b-versatile",
-
                 "messages": messages,
-
                 "temperature": 1,
-
                 "max_tokens": 300
-
             }
-
         )
 
         data = response.json()
 
         if "choices" not in data:
-
             print(data)
-
             return "🌸 Rei ka AI brain overload ho gaya 😭"
 
         reply = data["choices"][0]["message"]["content"]
 
         chat_memory[user_id].append({
-
             "role": "assistant",
             "content": reply
-
         })
 
         return reply
 
     except Exception as e:
-
         print(e)
-
         return "🌸 AI Error aa gaya 😭"
 
 # =========================================
@@ -296,9 +257,9 @@ Ultra Smart Anime AI
 
 ✨ Examples:
 
-• /send Naruto
-• hello rei
-• mood off
+- /send Naruto
+- hello rei
+- mood off
 
 """
 
@@ -315,25 +276,18 @@ async def batch_start(client, message):
         return
 
     try:
-
         anime_name = message.text.split(None, 1)[1]
-
     except:
-
-        return await message.reply_text(
-            "❌ Usage:\n/batch Naruto"
-        )
+        return await message.reply_text("❌ Usage:\n/batch Naruto")
 
     anime_name = clean_name(anime_name)
 
     save_mode[message.chat.id] = anime_name
 
     if anime_name not in anime_db:
-
         anime_db[anime_name] = []
 
     await message.reply_text(
-
         f"""
 🔥 Saving Mode ON
 
@@ -345,7 +299,6 @@ async def batch_start(client, message):
 🛑 Stop:
  /stopbatch
 """
-
     )
 
 # =========================================
@@ -359,10 +312,7 @@ async def stop_batch(client, message):
         return
 
     if message.chat.id not in save_mode:
-
-        return await message.reply_text(
-            "❌ No active batch."
-        )
+        return await message.reply_text("❌ No active batch.")
 
     anime = save_mode[message.chat.id]
 
@@ -371,7 +321,6 @@ async def stop_batch(client, message):
     save_db()
 
     await message.reply_text(
-
         f"""
 ✅ Saving Mode OFF
 
@@ -380,7 +329,6 @@ async def stop_batch(client, message):
 
 📦 Anime saved successfully.
 """
-
     )
 
 # =========================================
@@ -402,10 +350,8 @@ async def save_episodes(client, message):
     anime_name = save_mode[message.chat.id]
 
     anime_db[anime_name].append({
-
         "message_id": message.id,
         "chat_id": message.chat.id
-
     })
 
     save_db()
@@ -413,7 +359,6 @@ async def save_episodes(client, message):
     total = len(anime_db[anime_name])
 
     await message.reply_text(
-
         f"""
 ✅ Episode Saved
 
@@ -423,7 +368,6 @@ async def save_episodes(client, message):
 📦 Total Episodes:
 {total}
 """
-
     )
 
 # =========================================
@@ -434,78 +378,47 @@ async def save_episodes(client, message):
 async def send_anime(client, message):
 
     try:
-
         query = message.text.split(None, 1)[1]
-
     except:
-
-        return await message.reply_text(
-            "❌ Usage:\n/send Naruto"
-        )
+        return await message.reply_text("❌ Usage:\n/send Naruto")
 
     query = clean_name(query)
 
     found = None
 
-    # EXACT + PARTIAL
     for anime in anime_db:
-
         db_name = clean_name(anime)
-
         if query == db_name or query in db_name:
-
             found = anime
             break
 
-    # FUZZY
     if not found:
-
-        cleaned_db = {
-
-            clean_name(k): k
-            for k in anime_db.keys()
-
-        }
-
+        cleaned_db = {clean_name(k): k for k in anime_db.keys()}
         matches = difflib.get_close_matches(
-
-            query,
-            cleaned_db.keys(),
-            n=1,
-            cutoff=0.3
-
+            query, cleaned_db.keys(), n=1, cutoff=0.3
         )
-
         if matches:
-
             found = cleaned_db[matches[0]]
 
     if not found:
-
-        return await message.reply_text(
-            "❌ Anime not found"
-        )
+        return await message.reply_text("❌ Anime not found")
 
     episodes = anime_db[found]
 
     send_mode[message.chat.id] = {
-
         "anime": found,
         "episodes": episodes,
         "index": 0,
         "stopped": False
-
     }
 
     status = await message.reply_text(
-
         f"""
 🔥 Sending Anime
 
 🎬 {found.title()}
 📦 Episodes: {len(episodes)}
 """
-
     )
 
     while True:
@@ -516,33 +429,22 @@ async def send_anime(client, message):
             return
 
         if data["stopped"]:
-
-            await status.edit_text(
-                "🛑 Anime paused."
-            )
-
+            await status.edit_text("🛑 Anime paused.")
             return
 
         if data["index"] >= len(data["episodes"]):
-
-            await status.edit_text(
-                "✅ Anime completed."
-            )
-
+            await status.edit_text("✅ Anime completed.")
             del send_mode[message.chat.id]
-
             return
 
         ep = data["episodes"][data["index"]]
 
         try:
-
             await client.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=ep["chat_id"],
                 message_id=ep["message_id"]
             )
-
         except:
             pass
 
@@ -558,14 +460,7 @@ async def send_anime(client, message):
     filters.private
     & filters.text
     & ~filters.bot
-    & ~filters.command([
-
-        "start",
-        "batch",
-        "stopbatch",
-        "send"
-
-    ])
+    & ~filters.command(["start", "batch", "stopbatch", "send"])
 )
 async def main_chat(client, message):
 
@@ -578,57 +473,22 @@ async def main_chat(client, message):
 
         lower = user_text.lower()
 
-        # =========================================
-        # STOP SEND
-        # =========================================
-
-        if lower in [
-
-            "stop",
-            "/stop",
-            "pause",
-            "ruk"
-
-        ]:
-
+        if lower in ["stop", "/stop", "pause", "ruk"]:
             if message.chat.id in send_mode:
-
                 send_mode[message.chat.id]["stopped"] = True
+                return await message.reply_text("🛑 Anime paused.")
 
-                return await message.reply_text(
-                    "🛑 Anime paused."
-                )
-
-        # =========================================
-        # CONTINUE SEND
-        # =========================================
-
-        if lower in [
-
-            "continue",
-            "/continue",
-            "resume",
-            "start again"
-
-        ]:
+        if lower in ["continue", "/continue", "resume", "start again"]:
 
             if message.chat.id not in send_mode:
-
-                return await message.reply_text(
-                    "❌ No paused anime."
-                )
+                return await message.reply_text("❌ No paused anime.")
 
             if not send_mode[message.chat.id]["stopped"]:
-
-                return await message.reply_text(
-                    "⚡ Already running."
-                )
+                return await message.reply_text("⚡ Already running.")
 
             send_mode[message.chat.id]["stopped"] = False
 
-            await message.reply_text(
-                "▶ Continuing anime..."
-            )
+            await message.reply_text("▶ Continuing anime...")
 
             while True:
 
@@ -641,72 +501,43 @@ async def main_chat(client, message):
                     return
 
                 if data["index"] >= len(data["episodes"]):
-
-                    await message.reply_text(
-                        "✅ Anime completed."
-                    )
-
+                    await message.reply_text("✅ Anime completed.")
                     del send_mode[message.chat.id]
-
                     return
 
                 ep = data["episodes"][data["index"]]
 
                 try:
-
                     await client.copy_message(
                         chat_id=message.chat.id,
                         from_chat_id=ep["chat_id"],
                         message_id=ep["message_id"]
                     )
-
                 except:
                     pass
 
                 data["index"] += 1
-
                 await asyncio.sleep(0.7)
 
             return
 
-        # =========================================
-        # AI CHAT
-        # =========================================
+        await client.send_chat_action(message.chat.id, ChatAction.TYPING)
 
-        await client.send_chat_action(
-            message.chat.id,
-            ChatAction.TYPING
-        )
+        wait = await message.reply_text(random.choice(thinking_lines))
 
-        wait = await message.reply_text(
-            random.choice(thinking_lines)
-        )
-
-        reply = ask_ai(
-
-            str(message.from_user.id),
-            user_text
-
-        )
+        reply = ask_ai(str(message.from_user.id), user_text)
 
         await wait.edit_text(reply)
 
     except Exception as e:
-
         print(e)
-
         traceback.print_exc()
-
-        await message.reply_text(
-            "❌ Error aa gaya..."
-        )
+        await message.reply_text("❌ Error aa gaya...")
 
 # =========================================
 # RUN
 # =========================================
 
 if __name__ == "__main__":
-
     print("🌸 Rei Ultra AI Running...")
-
     app.run()
