@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from pyrogram import Client, filters
+from pyrogram.enums import ChatAction
 # =========================================
 # VARIABLES
 # =========================================
