@@ -7,9 +7,12 @@ import asyncio
 import random
 import requests
 
-from pyrogram import Client, filters
-from pyrogram.enums import ChatAction
+import requests
 
+from dotenv import load_dotenv
+load_dotenv()
+
+from pyrogram import Client, filters
 # =========================================
 # VARIABLES
 # =========================================
