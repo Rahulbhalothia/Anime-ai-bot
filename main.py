@@ -19,13 +19,14 @@ from pyrogram.errors import FloodWait, MessageNotModified
 # ENV VARIABLES
 # =========================================
 
-API_ID    = int(os.getenv("API_ID"))
-API_HASH  = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MONGO_URI = os.getenv("MONGO_URI")
+API_ID          = int(os.getenv("API_ID"))
+API_HASH        = os.getenv("API_HASH")
+BOT_TOKEN       = os.getenv("BOT_TOKEN")
+GROQ_API_KEY    = os.getenv("GROQ_API_KEY")
+MONGO_URI       = os.getenv("MONGO_URI")
+SESSION_STRING  = os.getenv("SESSION_STRING", "")
 
-ADMIN_ID  = 6270115110   # ← Apna Telegram user ID
+ADMIN_ID  = 6270115110
 
 # =========================================
 # MONGODB SETUP
@@ -37,15 +38,25 @@ anime_col      = db["anime"]
 users_col      = db["users"]
 
 # =========================================
-# BOT CLIENT
+# BOT CLIENT (session string for Railway)
 # =========================================
 
-app = Client(
-    "rei_ultra_ai",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN
-)
+if SESSION_STRING:
+    app = Client(
+        "rei_ultra_ai",
+        session_string=SESSION_STRING,
+        api_id=API_ID,
+        api_hash=API_HASH,
+        bot_token=BOT_TOKEN
+    )
+else:
+    # Local run ke liye (file session)
+    app = Client(
+        "rei_ultra_ai",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        bot_token=BOT_TOKEN
+    )
 
 # =========================================
 # IN-MEMORY STATE
@@ -611,13 +622,4 @@ async def cmd_batch(client, message):
 # =========================================
 
 @app.on_message(filters.command("stopbatch"))
-async def cmd_stopbatch(client, message):
-    if message.from_user.id != ADMIN_ID:
-        return await message.reply_text("❌ Sirf admin use kar sakta hai.")
-
-    if message.chat.id not in save_mode:
-        return await message.reply_text("❌ Koi active batch nahi hai.")
-
-    batch = save_mode.pop(message.chat.id)
-    anime_name = batch["name"]
-    total = l
+async def cmd_stopbatch(clien
